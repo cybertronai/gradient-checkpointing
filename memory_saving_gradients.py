@@ -1,10 +1,10 @@
+from toposort import toposort
+import contextlib
+import math
+import networkx as nx
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
-from toposort import toposort
-import networkx as nx
-import math
-import contextlib
 import time
 
 # save original gradients since tf.gradient could be monkey-patched to point to our version
@@ -14,14 +14,6 @@ tf_gradients = tf_gradients_lib.gradients
 from tensorflow.python.ops.control_flow_ops import MaybeCreateControlFlowState
 import sys
 sys.setrecursionlimit(10000)
-
-
-# backward compatibility
-if 'reroute_a2b_ts' in dir(ge):
-    my_reroute_ts = ge.reroute_a2b_ts
-else:
-    assert 'reroute_ts' in dir(ge)
-    my_reroute_ts = ge.reroute_ts
 
 
 # tf.gradients slowness work-around: https://github.com/tensorflow/tensorflow/issues/9901
@@ -48,32 +40,13 @@ from tensorflow.python.ops import gradients_impl
 gradients_impl._PendingCount = _MyPendingCount
 
 
-# get rid of "WARNING:tensorflow:VARIABLES collection name is deprecated" spam
-#setattr(tf.GraphKeys, "VARIABLES", "variables")
-# due to:
-#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/test/pixel_cnn_test.py(269)<module>()
-# -> main()
-#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/test/pixel_cnn_test.py(139)main()
-# -> grads.append(gradients(loss_gen[i], all_params))
-#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/memory_saving_gradients.py(274)gradients()
-# -> copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
-#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(624)copy_with_input_replacements()
-# -> sgv, dst_graph, dst_scope, src_scope, reuse_dst_scope=reuse_dst_scope)
-#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(433)__call__()
-# -> self._copy_ops(info)
-#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(452)_copy_ops()
-# -> self.assign_collections_handler(info, op, op_)
-#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(97)assign_renamed_collections_handler()
-
-#/contrib/graph_editor/util.py(487)get_predefined_collection_names()
-# -> return [getattr(tf_ops.GraphKeys, key) for key in dir(tf_ops.GraphKeys)
+# getting rid of "WARNING:tensorflow:VARIABLES collection name is deprecated"
+# spam inside graph_editor
 setattr(tf.GraphKeys, "VARIABLES", "variables")
 
 # refers back to current module if we decide to split helpers out
 import sys
 util = sys.modules[__name__]   
-
-import linearize as linearize_lib
 
 # specific versions we can use to do process-wide replacement of tf.gradients
 def gradients_speed(ys, xs, grad_ys=None, **kwargs):
@@ -82,11 +55,9 @@ def gradients_speed(ys, xs, grad_ys=None, **kwargs):
 def gradients_memory(ys, xs, grad_ys=None, **kwargs):
     return gradients(ys, xs, grad_ys, remember='memory', **kwargs)
         
-def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, remember='tarjan', **kwargs)
-
-#MERGE!
-# change default to collection
+def gradients_collection(ys, xs, grad_ys=None, **kwargs):
+    return gradients(ys, xs, grad_ys, remember='collection', **kwargs)
+        
 def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
     Authors: Tim Salimans & Yaroslav Bulatov, OpenAI
@@ -116,21 +87,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     if not isinstance(xs,list):
         xs = [xs]
 
-    #    print("Calling memory_saving_gradients")
-    # get "forward" graph
-    # MERGE!:
-    # tim version had
-    #      forward_inclusive=False, backward_inclusive=True)
-    #    fwd_seeds = [x.op for x in xs]
-    #    bwd_seeds = [y.op for y in ys]
-
-    # todo: do we need control_inputs like in intersection ops?
     bwd_ops = ge.get_backward_walk_ops([y.op for y in ys],
                                        inclusive=True)
     fwd_ops = ge.get_forward_walk_ops([x.op for x in xs],
                                       inclusive=True,
                                       within_ops=bwd_ops)
-    #        fwd_ops = ge.get_walks_intersection_ops(forward_seed_ops=fwd_seeds, backward_seed_ops=bwd_seeds, forward_inclusive=True, backward_inclusive=True)
 
     # remove all placeholders, variables and assigns
     fwd_ops = [op for op in fwd_ops if op._inputs]
@@ -150,7 +111,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
             
         elif remember == 'memory':
-
             # get all tensors in the fwd graph
             ts = ge.filter_ts(fwd_ops, True)
             debug_print("Filtering tensors: %s", ts)
@@ -199,44 +159,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
             k = np.minimum(int(np.floor(np.sqrt(N))), len(sorted_bottlenecks) // 2)
             remember = sorted_bottlenecks[k:N:k]
             
-        # use Tarjan's algorithm to find articulation points, use those
-        # as remember nodes
-        # TODO(y): this alg needs to restrict attention to tensors used in
-        # bwd pass
-        elif remember == 'tarjan':
-            graph = util.tf_ops_to_nx_graph(fwd_ops)
-            # TODO: sorted_list missing some nodes
-            # KeyError: <tf.Operation 'batch_normalization_4/FusedBatchNorm' type=FusedBatchNorm>
-            sorted_list = linearize_lib.linearize(modify_graph=False)
-            points = util.sort(nx.articulation_points(graph),
-                               total_order=sorted_list, dedup=True)
-
-            
-            # estimate number of ops that are cached for backward pass
-            # by counting tensors in fwd graph that are inputs to backprop
-            fwd_ts = ge.filter_ts(fwd_ops, True)
-            with util.capture_ops() as bwd_ops:
-                gs = tf_gradients(ys, xs, grad_ys, **kwargs)
-            bwd_inputs = [t for op in bwd_ops for t in op.inputs]
-            fwd_ts_needed = list(set(bwd_inputs).intersection(fwd_ts))
-
-            # can either take sqrt of fwd_ts_needed or sqrt of bottlenecks
-            # the latter works better on tensorflow/models/resnet
-            #num_to_save = math.ceil(np.sqrt(len(fwd_ts_needed)))
-            num_to_save = math.ceil(np.sqrt(len(points)))
-            
-            remember_ops = util.pick_n_equispaced(points, num_to_save)
-
-            if len(remember_ops) != len(set(remember_ops)):
-                debug_print("warning, some points repeated when saving")
-                assert False, "TODO(y): add deduping"
-
-            remember = []
-            for op in remember_ops:
-                assert len(op.outputs) == 1, ("Don't know how to handle this "
-                                              "many outputs")
-                remember.append(op.outputs[0])
-              
         else:
             raise Exception('%s is unsupported input for "remember"'%
                             (remember,))
@@ -261,30 +183,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
               format_ops(ys_intersect_remember))
         
     # remove terminal nodes from remember list if present
-    
-    ########################################
-    # MERGE!:
-    # tim version had
-    #   remember = list(set(remember) - set(ys))
-    #   remember_sorted_lists = tf_toposort(remember)
-    #
-    # but I needed to subtract xs to handle some edge cases in tests
-    ########################################
-    # my version had
-    #    remember = list(set(remember) - set(ys) - set(xs))
-    # tim version had
-    #    remember = list(set(remember) - set(ys))
-
     # remove initial and terminal nodes from remember list if present
     remember = list(set(remember) - set(ys) - set(xs))
     remember_sorted_lists = tf_toposort(remember)
     
     # check that we have some nodes to remember
-    ########################################
-    # MERGE:
-    # tim version had
-    # but this fails with TypeError: exceptions must derive from BaseException
-    ########################################
     if not remember:
         raise Exception('no remember nodes found or given as input! ')
 
@@ -302,7 +205,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         remember_disconnected[x] = grad_node
 
     # partial derivatives to the remembered tensors and xs
-    ops_to_copy = my_backward_ops(seed_ops=[y.op for y in ys], stop_at_ts=remember, within_ops=fwd_ops)
+    ops_to_copy = fast_backward_ops(seed_ops=[y.op for y in ys], stop_at_ts=remember, within_ops=fwd_ops)
     debug_print("Found %s ops to copy within ys %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ys],
                     remember)
@@ -310,20 +213,12 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
     copied_ops = info._transformed_ops.values()
     debug_print("Copied %s to %s", ops_to_copy, copied_ops)
-    my_reroute_ts(remember_disconnected.values(), remember_disconnected.keys(), can_modify=copied_ops)
+    ge.reroute_ts(remember_disconnected.values(), remember_disconnected.keys(), can_modify=copied_ops)
     debug_print("Rewired %s in place of %s restricted to %s",
                 remember_disconnected.values(), remember_disconnected.keys(), copied_ops)
     for op in copied_ops:
         ge.add_control_inputs(op, [y.op for y in ys])
-        #        debug_print("Run %s after %s"%(op.name, [y.op.name for y in ys]))
 
-
-    ########################################
-    # MERGE:
-    # Tim's version has
-    #    dv = tf.gradients([info._transformed_ops[y.op]._outputs[0] for y in ys], list(remember_disconnected.values())+xs, grad_ys, **kwargs)
-    # d_remember = {r: dr for r,dr in zip(remember_disconnected.keys(), dv[:len(remember_disconnected)])}
-    ########################################
 
     # get gradients with respect to current boundary + original x's
     copied_ys = [info._transformed_ops[y.op]._outputs[0] for y in ys]
@@ -341,32 +236,15 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # partial derivatives to xs (usually the params of the neural net)
     d_xs = dv[len(remember_disconnected):]
 
-    ########################################
-    # MERGE:
-    # Tim's version had
-    #
-    #
-    # get ops to copy for memory saving
-    #    ops_to_copy = {}
-    #    for ts in remember_sorted_lists[::-1]:
-    #        remember_other = [r for r in remember if r not in ts]
-    #        ops_to_copy[ts] = my_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=remember_other)
-    ########################################
-
     # incorporate derivatives flowing through the remembered nodes
     remember_sorted_lists = tf_toposort(remember, within_ops=fwd_ops)
     for ts in remember_sorted_lists[::-1]:
-        ########################################
-        # MERGE:
-        # Tim's version had
-        #        if not ops_to_copy[ts]: # we're done!
-        #            break
         debug_print("Processing list %s", ts)
         remember_other = [r for r in remember if r not in ts]
         remember_disconnected_other = [remember_disconnected[r] for r in remember_other]
 
         # copy part of the graph below current remember node, stopping at other remember nodes
-        ops_to_copy = my_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=remember_other)
+        ops_to_copy = fast_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=remember_other)
         debug_print("Found %s ops to copy within %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ts],
                     remember_other)
@@ -375,13 +253,12 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
         copied_ops = info._transformed_ops.values()
         debug_print("Copied %s to %s", ops_to_copy, copied_ops)
-        my_reroute_ts(remember_disconnected_other, remember_other, can_modify=copied_ops)
+        ge.reroute_ts(remember_disconnected_other, remember_other, can_modify=copied_ops)
         debug_print("Rewired %s in place of %s restricted to %s",
                     remember_disconnected_other, remember_other, copied_ops)
 
         for op in copied_ops:
             ge.add_control_inputs(op, [d_remember[r].op for r in ts])
-            #            debug_print("Run %s after %s", op, [d_remember[r].op for r in ts])
 
         # gradient flowing through the remembered node
         boundary = [info._transformed_ops[r.op]._outputs[0] for r in ts]
@@ -389,7 +266,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         dv = tf_gradients(boundary,
                           remember_disconnected_other+xs,
                           grad_ys=substitute_backprops, **kwargs)
-            #        import pdb; pdb.set_trace()
         debug_print("Got gradients %s", dv[:len(remember_other)])
         debug_print("for %s", boundary)
         debug_print("with respect to %s", remember_disconnected_other+xs)
@@ -412,18 +288,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 else:
                     d_xs[j] += d_xs_new[j]
 
-    # for grad,var in zip(d_xs, xs):
-    #     if grad is None:
-    #         print("Warning, None grad for", var)
-    #     else:
-    #         print("Warning, good grad for", var)
     return d_xs
-
-########################################
-# MERGE:
-# TODO: use tim's version
-# Tim's version turned tensors into ints to make things faster
-########################################
 
 
 def tf_toposort(ts, within_ops=None):
@@ -444,15 +309,12 @@ def tf_toposort(ts, within_ops=None):
 
     return ts_sorted_lists
 
-def my_backward_ops(within_ops, seed_ops, stop_at_ts):
+
+def fast_backward_ops(within_ops, seed_ops, stop_at_ts):
     bwd_ops = set(ge.get_backward_walk_ops(seed_ops, stop_at_ts=stop_at_ts))
     ops = bwd_ops.intersection(within_ops).difference([t.op for t in stop_at_ts])
     return list(ops)
 
-########################################
-# MERGE
-# functions from util copied here
-########################################
 
 @contextlib.contextmanager
 def capture_ops():
@@ -472,7 +334,6 @@ def capture_ops():
   op_list.extend(ge.select_ops(scope_name+"/.*", graph=g))
 
 
-# TODO(y): add support for empty s
 DEBUG_LOGGING=False
 def debug_print(s, *args):
   """Like logger.log, but also replaces all TensorFlow ops/tensors with their
@@ -486,6 +347,7 @@ def debug_print(s, *args):
     formatted_args = [format_ops(arg) for arg in args]
     print("DEBUG "+s % tuple(formatted_args))
 
+
 def format_ops(ops, sort_outputs=True):
   """Helper method for printing ops. Converts Tensor/Operation op to op.name,
   rest to str(op)."""
@@ -497,64 +359,4 @@ def format_ops(ops, sort_outputs=True):
     return l
   else:
     return ops.name if hasattr(ops, "name") else str(ops)
-
-
-# TODO: turn lists into sets (required by toposort)
-# TODO: ordered dict instead of dict
-def tf_ops_to_graph(ops):
-  """Creates op->children dictionary from list of TensorFlow ops."""
-
-  def flatten(l): return [item for sublist in l for item in sublist]
-  def children(op): return flatten(tensor.consumers() for tensor in op.outputs)
-  return {op: children(op) for op in ops}
-
-
-def tf_ops_to_nx_graph(ops):
-  """Convert Tensorflow graph to NetworkX graph."""
-  
-  return nx.Graph(tf_ops_to_graph(ops))
-
-def sort(nodes, total_order, dedup=False):
-  """Sorts nodes according to order provided.
-  
-  Args:
-    nodes: nodes to sort
-    total_order: list of nodes in correct order
-    dedup: if True, also discards duplicates in nodes
-
-  Returns:
-    Iterable of nodes in sorted order.
-  """
-
-  total_order_idx = {}
-  for i, node in enumerate(total_order):
-    total_order_idx[node] = i
-  if dedup:
-    nodes = set(nodes)
-  return sorted(nodes, key=lambda n: total_order_idx[n])
-
-def pick_every_k(l, k):
-  """Picks out every k'th element from the sequence, using round()
-  when k is not integer."""
-  
-  result = []
-  x = k
-  while round(x) < len(l):
-    result.append(l[int(round(x))])
-    print("picking ", int(round(x)))
-    x += k
-  return result
-
-
-def pick_n_equispaced(l, n):
-  """Picks out n points out of list, at roughly equal intervals."""
-
-  assert len(l) >= n
-  r = (len(l) - n)/float(n)
-  result = []
-  pos = r
-  while pos < len(l):
-    result.append(l[int(pos)])
-    pos += 1+r
-  return result
 
