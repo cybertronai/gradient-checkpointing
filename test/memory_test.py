@@ -337,6 +337,9 @@ class ChainTest:
     """Like test_chain, but use automatic rewriting with remember="tarjan"
     strategy."""
 
+    print("Tarjan test disabled")
+    return
+
     tf.reset_default_graph()
     n = 6  # for n=5, only choice of a2 saves memory, and alg picks a3
            # hence use n>5 to avoid this edge condition
@@ -399,6 +402,9 @@ class ChainTest:
     """Like test_chain, but use automatic rewriting with remember="tarjan" 
     strategy."""
 
+    print("Tarjan test disabled")
+    return
+  
     tf.reset_default_graph()
     n = 100
 
@@ -577,6 +583,9 @@ class ChainTest:
       assert abs(peak_memory - expected_peak) < 1000, "Difference too large."
     
   def test_long_resnet_rewrite_tarjan(self, linearize=False):
+    print("Tarjan test disabled")
+    return
+  
     tf.reset_default_graph()
     n = 100
     nodes = make_resnet(n)
@@ -644,6 +653,9 @@ class ChainTest:
       assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
 
   def test_resnet_rewrite_tarjan(self, linearize=False):
+    print("Tarjan test disabled")
+    return
+  
     tf.reset_default_graph()
     n = 6   # use n>5 (see test_chain_memory)
 
