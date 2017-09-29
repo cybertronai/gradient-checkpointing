@@ -65,6 +65,7 @@ def create_loss():
 
 def gradient_memory_test():
   """Evaluates gradient, prints peak memory."""
+  start_time0 = time.perf_counter()
   loss = create_loss()
 
   # use block_layer1, block_layer2, block_layer3 as remember nodes
@@ -73,14 +74,21 @@ def gradient_memory_test():
   for op in ge.filter_ops_from_regex(ops, "block_layer"):
     tf.add_to_collection("remember", op.outputs[0])
 
+  start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
+  print("Grads time: %.2f ms" %(time.perf_counter()-start_time))
   
   sess = create_session()
   sess.run(tf.global_variables_initializer())
   sess.run(grads)
 
   mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-  print("Memory used: %.2f MB "%(sess.run(mem_op)/1e6))
+  mem_use = sess.run(mem_op)/1e6
+  print("Memory used: %.2f MB "%(mem_use))
+  total_time = time.perf_counter()-start_time0
+  print("Total time: %.2f ms"%(total_time))
+  assert total_time < 10
+  return mem_use
 
 
 if __name__=='__main__':
@@ -93,10 +101,10 @@ if __name__=='__main__':
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with checkpoints")
-  gradient_memory_test()
+  assert(abs(gradient_memory_test()-701.15)<10)
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   
   print("Running without checkpoints")
-  gradient_memory_test()
+  assert(abs(gradient_memory_test()-1236.26)<10)
