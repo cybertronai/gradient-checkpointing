@@ -12,11 +12,11 @@ import numpy as np
 import tensorflow as tf
 
 # TODO: factor these out
-sys.path.insert(0, "..")
-sys.path.insert(0, "/home/yaroslav/git1/pixel-cnn-private")
+assert os.getcwd().endswith("/test"), "must run from 'test' directory"
+sys.path.insert(0, "..")   # folder with memory_saving_gradients
+
 from pixel_cnn_pp import nn
 from pixel_cnn_pp.model import model_spec
-from utils import plotting
 
 # -----------------------------------------------------------------------------
 parser = argparse.ArgumentParser()
@@ -255,10 +255,10 @@ def main():
                 for i in range(args.num_samples):
                     sample_x.append(sample_from_model(sess))
                 sample_x = np.concatenate(sample_x,axis=0)
-                img_tile = plotting.img_tile(sample_x[:100], aspect_ratio=1.0, border_color=1.0, stretch=True)
-                img = plotting.plot_img(img_tile, title=args.data_set + ' samples')
-                plotting.plt.savefig(os.path.join(args.save_dir,'%s_sample%d.png' % (args.data_set, epoch)))
-                plotting.plt.close('all')
+                #img_tile = plotting.img_tile(sample_x[:100], aspect_ratio=1.0, border_color=1.0, stretch=True)
+                #img = plotting.plot_img(img_tile, title=args.data_set + ' samples')
+                #plotting.plt.savefig(os.path.join(args.save_dir,'%s_sample%d.png' % (args.data_set, epoch)))
+                #plotting.plt.close('all')
                 np.savez(os.path.join(args.save_dir,'%s_sample%d.npz' % (args.data_set, epoch)), sample_x)
 
                 # save params

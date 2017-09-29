@@ -8,8 +8,6 @@ Running without checkpoints
 Memory used: 1236.68 MB
 """
 
-USE_MINE = True  # change to False to use Tim's version
-
 import os
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 
@@ -21,14 +19,9 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 
-if USE_MINE:  # add folder containing memory_util.py
-  #  sys.path.extend([os.environ["HOME"]+"/d/git0/pixel-cnn-private/pixel_cnn_pp"])
-  sys.path.extend([".."])
-  #  assert os.getcwd().endswith("tests"), "must run from tests directory"
-  import memory_saving_gradients
-else: # use tim's version, add folder containing "utils"
-  sys.path.extend([os.environ["HOME"]+"/d/git1/pixel-cnn-private"])
-  import utils.memory_saving_gradients as memory_saving_gradients
+assert os.getcwd().endswith("/test"), "must run from 'test' directory"
+sys.path.extend([".."])   # folder with memory_saving_gradients
+import memory_saving_gradients
 
 import resnet_model   
 
