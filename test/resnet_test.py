@@ -21,7 +21,6 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 
-
 if USE_MINE:  # add folder containing memory_util.py
   #  sys.path.extend([os.environ["HOME"]+"/d/git0/pixel-cnn-private/pixel_cnn_pp"])
   sys.path.extend([".."])

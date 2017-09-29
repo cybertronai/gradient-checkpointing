@@ -7,8 +7,14 @@ import math
 import contextlib
 import time
 
+# save original gradients since tf.gradient could be monkey-patched to point to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
 tf_gradients = tf_gradients_lib.gradients
+
+from tensorflow.python.ops.control_flow_ops import MaybeCreateControlFlowState
+import sys
+sys.setrecursionlimit(10000)
+
 
 # backward compatibility
 if 'reroute_a2b_ts' in dir(ge):
@@ -18,6 +24,50 @@ else:
     my_reroute_ts = ge.reroute_ts
 
 
+# tf.gradients slowness work-around: https://github.com/tensorflow/tensorflow/issues/9901
+def _MyPendingCount(graph, to_ops, from_ops, colocate_gradients_with_ops):
+
+    # get between ops, faster for large graphs than original implementation
+    between_op_list = ge.get_backward_walk_ops(to_ops, stop_at_ts=[op.outputs[0] for op in from_ops], inclusive=False)
+    between_op_list += to_ops + from_ops
+    between_op_list = list(set(between_op_list))
+    between_ops = [False] * (graph._last_id + 1)
+    for op in between_op_list:
+        between_ops[op._id] = True
+
+    # 'loop_state' is None if there are no while loops.
+    loop_state = MaybeCreateControlFlowState(between_op_list, between_ops, colocate_gradients_with_ops)
+    # Initialize pending count for between ops.
+    pending_count = [0] * (graph._last_id + 1)
+    for op in between_op_list:
+        for x in op.inputs:
+            if between_ops[x.op._id]:
+                pending_count[x.op._id] += 1
+    return pending_count, loop_state
+from tensorflow.python.ops import gradients_impl
+gradients_impl._PendingCount = _MyPendingCount
+
+
+# get rid of "WARNING:tensorflow:VARIABLES collection name is deprecated" spam
+#setattr(tf.GraphKeys, "VARIABLES", "variables")
+# due to:
+#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/test/pixel_cnn_test.py(269)<module>()
+# -> main()
+#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/test/pixel_cnn_test.py(139)main()
+# -> grads.append(gradients(loss_gen[i], all_params))
+#   /home/yaroslav/Dropbox/git0/gradient-checkpointing/memory_saving_gradients.py(274)gradients()
+# -> copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
+#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(624)copy_with_input_replacements()
+# -> sgv, dst_graph, dst_scope, src_scope, reuse_dst_scope=reuse_dst_scope)
+#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(433)__call__()
+# -> self._copy_ops(info)
+#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(452)_copy_ops()
+# -> self.assign_collections_handler(info, op, op_)
+#   /home/yaroslav/anaconda3/envs/sep22/lib/python3.5/site-packages/tensorflow/contrib/graph_editor/transform.py(97)assign_renamed_collections_handler()
+
+#/contrib/graph_editor/util.py(487)get_predefined_collection_names()
+# -> return [getattr(tf_ops.GraphKeys, key) for key in dir(tf_ops.GraphKeys)
+setattr(tf.GraphKeys, "VARIABLES", "variables")
 
 # refers back to current module if we decide to split helpers out
 import sys
@@ -37,7 +87,7 @@ def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
 
 #MERGE!
 # change default to collection
-def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
+def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
     Authors: Tim Salimans & Yaroslav Bulatov, OpenAI
 
@@ -71,13 +121,13 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
     # MERGE!:
     # tim version had
     #      forward_inclusive=False, backward_inclusive=True)
-    fwd_seeds = [x.op for x in xs]
-    bwd_seeds = [y.op for y in ys]
+    #    fwd_seeds = [x.op for x in xs]
+    #    bwd_seeds = [y.op for y in ys]
 
     # todo: do we need control_inputs like in intersection ops?
-    bwd_ops = ge.get_backward_walk_ops(bwd_seeds,
+    bwd_ops = ge.get_backward_walk_ops([y.op for y in ys],
                                        inclusive=True)
-    fwd_ops = ge.get_forward_walk_ops(fwd_seeds,
+    fwd_ops = ge.get_forward_walk_ops([x.op for x in xs],
                                       inclusive=True,
                                       within_ops=bwd_ops)
     #        fwd_ops = ge.get_walks_intersection_ops(forward_seed_ops=fwd_seeds, backward_seed_ops=bwd_seeds, forward_inclusive=True, backward_inclusive=True)
@@ -92,7 +142,8 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
     if type(remember) is not list:
         if remember == 'collection':
             remember = tf.get_collection('remember')
-
+            remember = list(set(remember).intersection(set(ge.filter_ts(fwd_ops, True))))
+            
         elif remember == 'speed':
             # remember all expensive ops to maximize running speed
             remember = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
@@ -113,7 +164,7 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
             ts_filtered = list(set(bwd_inputs).intersection(ts))
             debug_print("Using tensors %s", ts_filtered)
 
-            for rep in range(2): # try two slightly different ways of getting bottlenecks tensors to remember
+            for rep in range(2):  # try two slightly different ways of getting bottlenecks tensors to remember
 
                 if rep==0:
                     ts_rep = ts_filtered # use only filtered candidates
@@ -123,25 +174,14 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
                 for t in ts_rep:
-                    # find all nodes before current node + current node
-                    b = set(ge.get_backward_walk_ops(t.op, inclusive=True,
-                                                     within_ops=fwd_ops))
-                    # find all nodes after current node
-                    f = set(ge.get_forward_walk_ops(t.op, inclusive=False,
-                                                    within_ops=fwd_ops))
+                    b = set(ge.get_backward_walk_ops(t.op, inclusive=True, within_ops=fwd_ops))
+                    f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
 
-                    # check that all of the graph runs through this tensor
-                    ops_left_out = set(fwd_ops) - b - f - set([t.op])
-                    if not ops_left_out:
-
-                        # check that current node separates the graph
-                        b_inp = [inp for op in b for inp in op.inputs]
-                        f_inp = [inp for op in f for inp in op.inputs]
-                        debug_print("Looking at %s with inputs %s and %s",
-                                    [t], b_inp, f_inp)
-                        debug_print("Intersection is %s", set(b_inp).intersection(f_inp))
-                        if not set(b_inp).intersection(f_inp):  # we have a bottleneck!
-                            bottleneck_ts.append(t)
+                    # check that there are not shortcuts
+                    b_inp = [inp for op in b for inp in op.inputs]
+                    f_inp = [inp for op in f for inp in op.inputs]
+                    if not set(b_inp).intersection(f_inp):  # we have a bottleneck!
+                        bottleneck_ts.append(t)
 
                 # success? or try again without filtering?
                 if len(bottleneck_ts) >= np.sqrt(len(ts_filtered)): # yes, enough bottlenecks found!
@@ -156,9 +196,9 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
 
             # save an approximately optimal number ~ sqrt(N)
             N = len(ts_filtered)
-            k = np.minimum(int(np.floor(np.sqrt(N))), len(sorted_bottlenecks)//2)
+            k = np.minimum(int(np.floor(np.sqrt(N))), len(sorted_bottlenecks) // 2)
             remember = sorted_bottlenecks[k:N:k]
-
+            
         # use Tarjan's algorithm to find articulation points, use those
         # as remember nodes
         # TODO(y): this alg needs to restrict attention to tensors used in
@@ -235,6 +275,7 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
     # tim version had
     #    remember = list(set(remember) - set(ys))
 
+    # remove initial and terminal nodes from remember list if present
     remember = list(set(remember) - set(ys) - set(xs))
     remember_sorted_lists = tf_toposort(remember)
     
@@ -261,9 +302,7 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
         remember_disconnected[x] = grad_node
 
     # partial derivatives to the remembered tensors and xs
-    ops_to_copy = my_backward_ops(within_ops=fwd_ops,
-                                  seed_ops=[y.op for y in ys],
-                                  stop_at_ts=remember)
+    ops_to_copy = my_backward_ops(seed_ops=[y.op for y in ys], stop_at_ts=remember, within_ops=fwd_ops)
     debug_print("Found %s ops to copy within ys %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ys],
                     remember)
@@ -315,7 +354,7 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
     ########################################
 
     # incorporate derivatives flowing through the remembered nodes
-    remember_sorted_lists = tf_toposort(remember)
+    remember_sorted_lists = tf_toposort(remember, within_ops=fwd_ops)
     for ts in remember_sorted_lists[::-1]:
         ########################################
         # MERGE:
@@ -339,6 +378,7 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
         my_reroute_ts(remember_disconnected_other, remember_other, can_modify=copied_ops)
         debug_print("Rewired %s in place of %s restricted to %s",
                     remember_disconnected_other, remember_other, copied_ops)
+
         for op in copied_ops:
             ge.add_control_inputs(op, [d_remember[r].op for r in ts])
             #            debug_print("Run %s after %s", op, [d_remember[r].op for r in ts])
@@ -372,6 +412,11 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
                 else:
                     d_xs[j] += d_xs_new[j]
 
+    # for grad,var in zip(d_xs, xs):
+    #     if grad is None:
+    #         print("Warning, None grad for", var)
+    #     else:
+    #         print("Warning, good grad for", var)
     return d_xs
 
 ########################################
@@ -381,8 +426,9 @@ def gradients(ys, xs, grad_ys=None, remember='speed', **kwargs):
 ########################################
 
 
-def tf_toposort(ts):
-    all_ops = ge.get_forward_walk_ops([x.op for x in ts])
+def tf_toposort(ts, within_ops=None):
+    all_ops = ge.get_forward_walk_ops([x.op for x in ts], within_ops=within_ops)
+
     deps = {}
     for op in all_ops:
         for o in op.outputs:
