@@ -108,3 +108,4 @@ if __name__=='__main__':
   
   print("Running without checkpoints")
   assert(abs(gradient_memory_test()-1236.26)<10)
+  print("Test passed")
