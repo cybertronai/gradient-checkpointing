@@ -79,7 +79,7 @@ def gradient_memory_test():
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   print("Total time: %.2f ms"%(total_time))
-  assert total_time < 10
+  assert total_time < 100
   return mem_use
 
 
@@ -92,12 +92,20 @@ if __name__=='__main__':
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
-  print("Running with checkpoints")
-  assert(abs(gradient_memory_test()-701.15)<10)
+  print("Running with manual checkpoints")
+  assert(gradient_memory_test() < 720)
+
+  # automatic checkpoint selection
+  def gradients_auto(ys, xs, grad_ys=None, **kwargs):
+    return memory_saving_gradients.gradients(ys, xs, grad_ys,
+                                             remember='memory', **kwargs)
+  tf.__dict__["gradients"] = gradients_auto
+  print("Running with automatically selected checkpoints")
+  assert(gradient_memory_test() < 720)
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   
   print("Running without checkpoints")
-  assert(abs(gradient_memory_test()-1236.26)<10)
+  assert(gradient_memory_test() < 1250)
   print("Test passed")

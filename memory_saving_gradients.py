@@ -1,7 +1,5 @@
 from toposort import toposort
 import contextlib
-import math
-import networkx as nx
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
@@ -60,7 +58,7 @@ def gradients_collection(ys, xs, grad_ys=None, **kwargs):
         
 def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
-    Authors: Tim Salimans & Yaroslav Bulatov, OpenAI
+    Authors: Tim Salimans & Yaroslav Bulatov
 
     memory efficient gradient implementation inspired by "Training Deep Nets with Sublinear Memory Cost"
     by Chen et al. 2016 (https://arxiv.org/abs/1604.06174)
@@ -79,7 +77,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
             - 'memory': try to minimize the memory usage
                         (currently using a very simple strategy that identifies a number of bottleneck tensors in the graph to remember)
             - 'collection': look for a tensorflow collection named 'remember', which holds the tensors to remember
-           - 'tarjan': use Tarjan's algorithm to find articulation points, and use those are remember tensors
     '''
     print("Calling memsaving gradients with ", remember)
     if not isinstance(ys,list):
@@ -93,75 +90,77 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                                       inclusive=True,
                                       within_ops=bwd_ops)
 
-    # remove all placeholders, variables and assigns
+    # remove all placeholders and assigns
     fwd_ops = [op for op in fwd_ops if op._inputs]
-    fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
-    fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
+    fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
+    fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
+
+    # get the tensors, remove variables and very small tensors
+    ts_all = ge.filter_ts(fwd_ops, True)
+    ts_all = [t for t in ts_all if '/read' not in t.name]
+    ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
+    ts_all = [t for t in ts_all if 'entropy' not in t.name]
+    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
+    ts_all = [t for t in ts_all if nr_elem(t)>1024]
+    debug_print("Filtering tensors: %s", ts_all)
 
     # construct list of tensors to remember from forward pass, if not given as input
     if type(remember) is not list:
         if remember == 'collection':
             remember = tf.get_collection('remember')
-            remember = list(set(remember).intersection(set(ge.filter_ts(fwd_ops, True))))
+            remember = list(set(remember).intersection(ts_all))
             
         elif remember == 'speed':
             # remember all expensive ops to maximize running speed
             remember = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
-
             
         elif remember == 'memory':
-            # get all tensors in the fwd graph
-            ts = ge.filter_ts(fwd_ops, True)
-            debug_print("Filtering tensors: %s", ts)
 
             # filter out all tensors that are inputs of the backward graph
             with util.capture_ops() as bwd_ops:
-                gs = tf_gradients(ys, xs, grad_ys, **kwargs)
+                tf_gradients(ys, xs, grad_ys, **kwargs)
 
             bwd_inputs = [t for op in bwd_ops for t in op.inputs]
             # list of tensors in forward graph that is in input to bwd graph
-            ts_filtered = list(set(bwd_inputs).intersection(ts))
+            ts_filtered = list(set(bwd_inputs).intersection(ts_all))
             debug_print("Using tensors %s", ts_filtered)
 
-            for rep in range(2):  # try two slightly different ways of getting bottlenecks tensors to remember
-
-                if rep==0:
-                    ts_rep = ts_filtered # use only filtered candidates
-                else:
-                    ts_rep = ts # if not enough bottlenecks found on first try, use all tensors as candidates
+            for ts in [ts_filtered, ts_all]:  # try two slightly different ways of getting bottlenecks tensors to remember
 
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
-                for t in ts_rep:
-                    b = set(ge.get_backward_walk_ops(t.op, inclusive=True, within_ops=fwd_ops))
+                for t in ts:
+                    b = set(ge.get_backward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
 
                     # check that there are not shortcuts
-                    b_inp = [inp for op in b for inp in op.inputs]
-                    f_inp = [inp for op in f for inp in op.inputs]
-                    if not set(b_inp).intersection(f_inp):  # we have a bottleneck!
-                        bottleneck_ts.append(t)
+                    b_inp = set([inp for op in b for inp in op.inputs]).intersection(ts_all)
+                    f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
+                    if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all)-1:
+                        bottleneck_ts.append(t)  # we have a bottleneck!
 
                 # success? or try again without filtering?
                 if len(bottleneck_ts) >= np.sqrt(len(ts_filtered)): # yes, enough bottlenecks found!
                     break
 
             if not bottleneck_ts:
-                raise('unable to find bottleneck tensors! please provide remember nodes manually, or use remember="speed".')
+                raise Exception('unable to find bottleneck tensors! please provide remember nodes manually, or use remember="speed".')
 
             # sort the bottlenecks
-            bottlenecks_sorted_lists = tf_toposort(bottleneck_ts)
+            bottlenecks_sorted_lists = tf_toposort(bottleneck_ts, within_ops=fwd_ops)
             sorted_bottlenecks = [t for ts in bottlenecks_sorted_lists for t in ts]
 
             # save an approximately optimal number ~ sqrt(N)
             N = len(ts_filtered)
-            k = np.minimum(int(np.floor(np.sqrt(N))), len(sorted_bottlenecks) // 2)
-            remember = sorted_bottlenecks[k:N:k]
+            if len(bottleneck_ts) < np.sqrt(N):
+                remember = sorted_bottlenecks
+            else:
+                step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
+                remember = sorted_bottlenecks[step::step]
             
         else:
-            raise Exception('%s is unsupported input for "remember"'%
-                            (remember,))
+            raise Exception('%s is unsupported input for "remember"' % (remember,))
 
     # at this point automatic selection happened and remember is list of nodes
     assert isinstance(remember, list)
@@ -181,22 +180,16 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     if ys_intersect_remember:
         debug_print("Warning, some output nodes are also remember nodes: %s",
               format_ops(ys_intersect_remember))
-        
-    # remove terminal nodes from remember list if present
+
     # remove initial and terminal nodes from remember list if present
     remember = list(set(remember) - set(ys) - set(xs))
-    remember_sorted_lists = tf_toposort(remember)
     
     # check that we have some nodes to remember
     if not remember:
         raise Exception('no remember nodes found or given as input! ')
 
     # disconnect dependencies between remembered tensors
-    ########################################
-    # MERGE!:
-    # My version commented out this line, not sure why
-    ########################################
-    remember_disconnected = {x: tf.stop_gradient(x) for x in remember}
+    remember_disconnected = {}
     for x in remember:
         if x.op and x.op.name is not None:
             grad_node = tf.stop_gradient(x, name=x.op.name+"_sg")
@@ -207,8 +200,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # partial derivatives to the remembered tensors and xs
     ops_to_copy = fast_backward_ops(seed_ops=[y.op for y in ys], stop_at_ts=remember, within_ops=fwd_ops)
     debug_print("Found %s ops to copy within ys %s, seed %s, stop_at %s",
-                    len(ops_to_copy), fwd_ops, [r.op for r in ys],
-                    remember)
+                    len(ops_to_copy), fwd_ops, [r.op for r in ys], remember)
     debug_print("Processing list %s", ys)
     copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
     copied_ops = info._transformed_ops.values()
@@ -216,9 +208,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ge.reroute_ts(remember_disconnected.values(), remember_disconnected.keys(), can_modify=copied_ops)
     debug_print("Rewired %s in place of %s restricted to %s",
                 remember_disconnected.values(), remember_disconnected.keys(), copied_ops)
-    for op in copied_ops:
-        ge.add_control_inputs(op, [y.op for y in ys])
-
 
     # get gradients with respect to current boundary + original x's
     copied_ys = [info._transformed_ops[y.op]._outputs[0] for y in ys]
@@ -228,6 +217,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     debug_print("for %s", copied_ys)
     debug_print("with respect to %s", boundary+xs)
 
+    inputs_to_do_before = [y.op for y in ys]
+    if grad_ys is not None:
+        inputs_to_do_before += grad_ys
+    wait_to_do_ops = list(copied_ops) + [g.op for g in dv if g is not None]
+    my_add_control_inputs(wait_to_do_ops, inputs_to_do_before)
 
     # partial derivatives to the remembered nodes
     # dictionary of "node: backprop" for nodes in the boundary
@@ -257,9 +251,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         debug_print("Rewired %s in place of %s restricted to %s",
                     remember_disconnected_other, remember_other, copied_ops)
 
-        for op in copied_ops:
-            ge.add_control_inputs(op, [d_remember[r].op for r in ts])
-
         # gradient flowing through the remembered node
         boundary = [info._transformed_ops[r.op]._outputs[0] for r in ts]
         substitute_backprops = [d_remember[r] for r in ts]
@@ -270,6 +261,10 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         debug_print("for %s", boundary)
         debug_print("with respect to %s", remember_disconnected_other+xs)
         debug_print("with boundary backprop substitutions %s", substitute_backprops)
+
+        inputs_to_do_before = [d_remember[r].op for r in ts]
+        wait_to_do_ops = list(copied_ops) + [g.op for g in dv if g is not None]
+        my_add_control_inputs(wait_to_do_ops, inputs_to_do_before)
 
         # partial derivatives to the remembered nodes
         for r, dr in zip(remember_other, dv[:len(remember_other)]):
@@ -359,4 +354,9 @@ def format_ops(ops, sort_outputs=True):
     return l
   else:
     return ops.name if hasattr(ops, "name") else str(ops)
+
+def my_add_control_inputs(wait_to_do_ops, inputs_to_do_before):
+    for op in wait_to_do_ops:
+        ci = [i for i in inputs_to_do_before if op.control_inputs is None or i not in op.control_inputs]
+        ge.add_control_inputs(op, ci)
 
