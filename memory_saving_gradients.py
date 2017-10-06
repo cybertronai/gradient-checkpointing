@@ -103,6 +103,8 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
     nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
     ts_all = [t for t in ts_all if nr_elem(t)>1024]
+    ts_all = set(ts_all) - set(xs)
+
     debug_print("Filtering tensors: %s", ts_all)
 
     # construct list of tensors to remember from forward pass, if not given as input
