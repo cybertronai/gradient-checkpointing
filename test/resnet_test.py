@@ -36,6 +36,9 @@ _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
 RESNET_SIZE=122
 
+# debug parameters
+DUMP_GRAPHDEF = False
+
 def create_session():
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
   config = tf.ConfigProto(operation_timeout_in_ms=150000, graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
@@ -60,6 +63,9 @@ def gradient_memory_test():
   start_time0 = time.perf_counter()
   loss = create_loss()
 
+  if DUMP_GRAPHDEF:
+    open('graphdef.txt', 'w').write(str(tf.get_default_graph().as_graph_def()))
+
   # use block_layer1, block_layer2, block_layer3 as remember nodes
   g = tf.get_default_graph()
   ops = g.get_operations()
@@ -68,11 +74,14 @@ def gradient_memory_test():
 
   start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
-  print("Grads time: %.2f ms" %(time.perf_counter()-start_time))
+  print("Graph construction time: %.2f ms" %(time.perf_counter()-start_time))
   
   sess = create_session()
   sess.run(tf.global_variables_initializer())
   sess.run(grads)
+  start_time = time.perf_counter()
+  sess.run(grads)
+  print("Compute time: %.2f ms" %(time.perf_counter()-start_time))
 
   mem_op = tf.contrib.memory_stats.MaxBytesInUse()
   mem_use = sess.run(mem_op)/1e6
@@ -85,7 +94,15 @@ def gradient_memory_test():
 
 if __name__=='__main__':
   assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
-
+  
+  # automatic checkpoint selection
+  def gradients_auto(ys, xs, grad_ys=None, **kwargs):
+    return memory_saving_gradients.gradients(ys, xs, grad_ys,
+                                             remember='memory', **kwargs)
+  tf.__dict__["gradients"] = gradients_auto
+  print("Running with automatically selected checkpoints")
+  assert(gradient_memory_test() < 720)
+  
   # replace tf.gradients with custom version
   old_gradients = tf.gradients
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
@@ -95,13 +112,6 @@ if __name__=='__main__':
   print("Running with manual checkpoints")
   assert(gradient_memory_test() < 720)
 
-  # automatic checkpoint selection
-  def gradients_auto(ys, xs, grad_ys=None, **kwargs):
-    return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='memory', **kwargs)
-  tf.__dict__["gradients"] = gradients_auto
-  print("Running with automatically selected checkpoints")
-  assert(gradient_memory_test() < 720)
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
