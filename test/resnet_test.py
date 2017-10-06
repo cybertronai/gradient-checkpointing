@@ -94,6 +94,7 @@ def gradient_memory_test():
 
 if __name__=='__main__':
   assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
+  old_gradients = tf.gradients
   
   # automatic checkpoint selection
   def gradients_auto(ys, xs, grad_ys=None, **kwargs):
@@ -104,7 +105,6 @@ if __name__=='__main__':
   assert(gradient_memory_test() < 720)
   
   # replace tf.gradients with custom version
-  old_gradients = tf.gradients
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
                                              remember='collection', **kwargs)
