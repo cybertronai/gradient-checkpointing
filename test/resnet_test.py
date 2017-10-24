@@ -110,7 +110,7 @@ if __name__=='__main__':
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with manual checkpoints")
-  assert(gradient_memory_test() < 720)
+  assert(gradient_memory_test() < 730)
 
 
   # restore old gradients
