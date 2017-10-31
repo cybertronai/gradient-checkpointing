@@ -1,0 +1,781 @@
+dev_stats {
+  device: "/job:localhost/replica:0/task:0/device:CPU:0"
+  node_stats {
+    node_name: "_SOURCE"
+    all_start_micros: 1509476025626608
+    op_start_rel_micros: 3
+    op_end_rel_micros: 3
+    all_end_rel_micros: 19
+    memory {
+      allocator_name: "cpu"
+    }
+    timeline_label: "_SOURCE = NoOp()"
+    scheduled_micros: 1509476025626582
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/Fill"
+    all_start_micros: 1509476025626632
+    op_start_rel_micros: 9
+    op_end_rel_micros: 13
+    all_end_rel_micros: 17
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocator_name: "cpu"
+          ptr: 4832362496
+        }
+      }
+    }
+    timeline_label: "gradients/Fill = Const()"
+    scheduled_micros: 1509476025626627
+    memory_stats {
+      host_persistent_memory_size: 1000000
+      host_persistent_tensor_alloc_ids: -1
+    }
+  }
+  node_stats {
+    node_name: "a00"
+    all_start_micros: 1509476025626651
+    op_start_rel_micros: 1
+    op_end_rel_micros: 4
+    all_end_rel_micros: 6
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocator_name: "cpu"
+          ptr: 4752248832
+        }
+      }
+    }
+    timeline_label: "a00 = VariableV2()"
+    scheduled_micros: 1509476025626629
+    memory_stats {
+      host_persistent_memory_size: 1000000
+      host_persistent_tensor_alloc_ids: -1
+    }
+  }
+  node_stats {
+    node_name: "a00/read"
+    all_start_micros: 1509476025626658
+    op_start_rel_micros: 1
+    op_end_rel_micros: 1
+    all_end_rel_micros: 2
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocator_name: "cpu"
+          ptr: 4752248832
+        }
+      }
+    }
+    timeline_label: "a00/read = Identity(a00)"
+    scheduled_micros: 1509476025626657
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a01"
+    all_start_micros: 1509476025626661
+    op_start_rel_micros: 1
+    op_end_rel_micros: 158
+    all_end_rel_micros: 164
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025626664
+        alloc_bytes: 1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4833366016
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a01 = Tanh(a00/read)"
+    scheduled_micros: 1509476025626660
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a02"
+    all_start_micros: 1509476025626835
+    op_end_rel_micros: 500
+    all_end_rel_micros: 507
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025626842
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025632208
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4834418688
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a02 = Tanh(a01)"
+    scheduled_micros: 1509476025626825
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a03"
+    all_start_micros: 1509476025627348
+    op_start_rel_micros: 1
+    op_end_rel_micros: 475
+    all_end_rel_micros: 480
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025627355
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025632112
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4835422208
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a03 = Tanh(a02)"
+    scheduled_micros: 1509476025627342
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a04"
+    all_start_micros: 1509476025627831
+    op_start_rel_micros: 1
+    op_end_rel_micros: 412
+    all_end_rel_micros: 418
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025627849
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631966
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4836425728
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a04 = Tanh(a03)"
+    scheduled_micros: 1509476025627828
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a05"
+    all_start_micros: 1509476025628253
+    op_start_rel_micros: 1
+    op_end_rel_micros: 706
+    all_end_rel_micros: 710
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025628268
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631840
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4837429248
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a05 = Tanh(a04)"
+    scheduled_micros: 1509476025628249
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a06"
+    all_start_micros: 1509476025628968
+    op_start_rel_micros: 1
+    op_end_rel_micros: 501
+    all_end_rel_micros: 518
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025628975
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631715
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4838432768
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a06 = Tanh(a05)"
+    scheduled_micros: 1509476025628963
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a07"
+    all_start_micros: 1509476025629492
+    op_start_rel_micros: 1
+    op_end_rel_micros: 602
+    all_end_rel_micros: 607
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025629507
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631570
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4839436288
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a07 = Tanh(a06)"
+    scheduled_micros: 1509476025629486
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a08"
+    all_start_micros: 1509476025630104
+    op_end_rel_micros: 398
+    all_end_rel_micros: 403
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025630123
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631454
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4840439808
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a08 = Tanh(a07)"
+    scheduled_micros: 1509476025630099
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "a09"
+    all_start_micros: 1509476025630511
+    op_start_rel_micros: 1
+    op_end_rel_micros: 569
+    all_end_rel_micros: 574
+    memory {
+      allocator_name: "cpu"
+      total_bytes: 1000000
+      peak_bytes: 1000000
+      live_bytes: 1000000
+      allocation_records {
+        alloc_micros: 1509476025630526
+        alloc_bytes: 1000000
+      }
+      allocation_records {
+        alloc_micros: 1509476025631324
+        alloc_bytes: -1000000
+      }
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          has_single_reference: true
+          ptr: 4841443328
+        }
+      }
+    }
+    timeline_label: "[cpu 1.0MB 1.0MB] a09 = Tanh(a08)"
+    scheduled_micros: 1509476025630507
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a09_grad/TanhGrad"
+    all_start_micros: 1509476025631089
+    op_start_rel_micros: 1
+    op_end_rel_micros: 146
+    all_end_rel_micros: 152
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4841443328
+        }
+      }
+    }
+    timeline_label: "gradients/a09_grad/TanhGrad = TanhGrad(a09, gradients/Fill)"
+    scheduled_micros: 1509476025631085
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a08_grad/TanhGrad"
+    all_start_micros: 1509476025631244
+    op_start_rel_micros: 1
+    op_end_rel_micros: 74
+    all_end_rel_micros: 84
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4840439808
+        }
+      }
+    }
+    timeline_label: "gradients/a08_grad/TanhGrad = TanhGrad(a08, gradients/a09_grad/TanhGrad)"
+    scheduled_micros: 1509476025631241
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a07_grad/TanhGrad"
+    all_start_micros: 1509476025631342
+    op_start_rel_micros: 1
+    op_end_rel_micros: 98
+    all_end_rel_micros: 114
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4839436288
+        }
+      }
+    }
+    timeline_label: "gradients/a07_grad/TanhGrad = TanhGrad(a07, gradients/a08_grad/TanhGrad)"
+    scheduled_micros: 1509476025631328
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a06_grad/TanhGrad"
+    all_start_micros: 1509476025631459
+    op_start_rel_micros: 12
+    op_end_rel_micros: 107
+    all_end_rel_micros: 113
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4838432768
+        }
+      }
+    }
+    timeline_label: "gradients/a06_grad/TanhGrad = TanhGrad(a06, gradients/a07_grad/TanhGrad)"
+    scheduled_micros: 1509476025631456
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a05_grad/TanhGrad"
+    all_start_micros: 1509476025631575
+    op_end_rel_micros: 134
+    all_end_rel_micros: 143
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4837429248
+        }
+      }
+    }
+    timeline_label: "gradients/a05_grad/TanhGrad = TanhGrad(a05, gradients/a06_grad/TanhGrad)"
+    scheduled_micros: 1509476025631572
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a04_grad/TanhGrad"
+    all_start_micros: 1509476025631721
+    op_start_rel_micros: 1
+    op_end_rel_micros: 114
+    all_end_rel_micros: 122
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4836425728
+        }
+      }
+    }
+    timeline_label: "gradients/a04_grad/TanhGrad = TanhGrad(a04, gradients/a05_grad/TanhGrad)"
+    scheduled_micros: 1509476025631718
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a03_grad/TanhGrad"
+    all_start_micros: 1509476025631846
+    op_start_rel_micros: 1
+    op_end_rel_micros: 115
+    all_end_rel_micros: 123
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4835422208
+        }
+      }
+    }
+    timeline_label: "gradients/a03_grad/TanhGrad = TanhGrad(a03, gradients/a04_grad/TanhGrad)"
+    scheduled_micros: 1509476025631843
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a02_grad/TanhGrad"
+    all_start_micros: 1509476025631972
+    op_start_rel_micros: 1
+    op_end_rel_micros: 122
+    all_end_rel_micros: 142
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4834418688
+        }
+      }
+    }
+    timeline_label: "gradients/a02_grad/TanhGrad = TanhGrad(a02, gradients/a03_grad/TanhGrad)"
+    scheduled_micros: 1509476025631969
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "gradients/a01_grad/TanhGrad"
+    all_start_micros: 1509476025632117
+    op_start_rel_micros: 1
+    op_end_rel_micros: 86
+    all_end_rel_micros: 93
+    memory {
+      allocator_name: "cpu"
+    }
+    output {
+      tensor_description {
+        dtype: DT_FLOAT
+        shape {
+          dim {
+            size: 250000
+          }
+        }
+        allocation_description {
+          requested_bytes: 1000000
+          allocated_bytes: 1000000
+          allocator_name: "cpu"
+          allocation_id: 1
+          ptr: 4833366016
+        }
+      }
+    }
+    timeline_label: "gradients/a01_grad/TanhGrad = TanhGrad(a01, gradients/a02_grad/TanhGrad)"
+    scheduled_micros: 1509476025632114
+    memory_stats {
+    }
+  }
+  node_stats {
+    node_name: "_retval_gradients/a01_grad/TanhGrad_0_0"
+    all_start_micros: 1509476025632213
+    op_start_rel_micros: 1
+    op_end_rel_micros: 21
+    all_end_rel_micros: 35
+    memory {
+      allocator_name: "cpu"
+    }
+    timeline_label: "_retval_gradients/a01_grad/TanhGrad_0_0 = _Retval(gradients/a01_grad/TanhGrad)"
+    scheduled_micros: 1509476025632210
+    memory_stats {
+    }
+  }
+}
