@@ -449,6 +449,83 @@ def get_peak_memory(run_metadata):
         peak_memory = memory
   return peak_memory
 
+################################################################################
+# New metadata utilities
+################################################################################
+# run_metadata: whatever you get from FULL_TRACING
+# node_stats: run_metadata.step_stats.dev_stats[0].node_stats
+
+def timeline_from_nodestats(nodestats):
+  """Return sorted memory allocation records
+
+ timestamp         nodename  mem delta, allocator name
+ [1509481813012895, 'concat', 1000496, 'cpu'],
+ [1509481813012961, 'a04', -1000000, 'cpu'],
+ [1509481813012968, 'TanhGrad', 0, 'cpu'], 
+
+  0 memory allocation is reported for nodes without allocation_records
+  """
+  
+  #  run_metadata.step_stats
+  #  
+  lines = []
+  if not nodestats:
+    return []
+  for node in nodestats:
+    mem = node.memory
+    assert(len(mem) == 1), str(node)
+    records = mem[0].allocation_records
+    allocator = node.memory[0].allocator_name
+    assert len(mem) == 1
+    if len(records)>0:
+      assert len(records)<=2
+      for record in records:
+        line = [record.alloc_micros, node.node_name, record.alloc_bytes,
+                allocator]
+        lines.append(line)
+    else:
+      output_bytes = -1
+      try:
+        output_bytes = node.output[0].tensor_description.allocation_description.requested_bytes
+      except:
+        pass
+      line = [node.all_start_micros, node.node_name, 0, "unknown"]
+      lines.append(line)
+  def first_key(x): return x[0]
+  return sorted(lines, key=first_key)
+
+
+def _retrieve_cpu_gpu_stats(run_metadata):
+  cpu_stats = None
+  gpu_stats = None
+  step_stats = run_metadata.step_stats
+  for ds in step_stats.dev_stats:
+    if "cpu:0" in ds.device[-5:].lower():
+      cpu_stats = ds.node_stats
+    if "gpu:0" == ds.device[-5:].lower():
+      gpu_stats = ds.node_stats
+  return cpu_stats, gpu_stats
+
+def peak_from_nodestats(nodestats):
+  timeline = timeline_from_nodestats(nodestats)
+  timestamps = []
+  data = []
+
+  total_memory = 0
+  peak_memory = total_memory
+  for record in timeline:
+    timestamp, kernel_name, allocated_bytes, allocator_type = record
+    allocated_bytes = int(allocated_bytes)
+    total_memory += allocated_bytes
+    peak_memory = max(total_memory, peak_memory)
+  return peak_memory
+
+
+def peak_from_metadata(run_metadata):
+  cpu_stats, gpu_stats = _retrieve_cpu_gpu_stats(run_metadata)
+  return {'cpu': peak_from_nodestats(cpu_stats),
+          'gpu': peak_from_nodestats(gpu_stats)}
+  
 if __name__=='__main__':
   ignore_less_than_bytes = 1
   if len(sys.argv) == 2:
@@ -459,3 +536,4 @@ if __name__=='__main__':
     print_memory_timeline(sys.stdin.read(), ignore_less_than_bytes=ignore_less_than_bytes)
   else:
     assert False, "Must have 1 or 2 args, got %d"%(len(sys.argv))
+

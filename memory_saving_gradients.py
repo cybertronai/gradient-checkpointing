@@ -78,7 +78,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                         (currently using a very simple strategy that identifies a number of bottleneck tensors in the graph to remember)
             - 'collection': look for a tensorflow collection named 'remember', which holds the tensors to remember
     '''
-    print("Calling memsaving gradients with", remember)
+#    print("Calling memsaving gradients with", remember)
     if not isinstance(ys,list):
         ys = [ys]
     if not isinstance(xs,list):
