@@ -1,3 +1,9 @@
+# test chain gradient, using 4 different ways of obtaining memory usage
+# 3001088 VLOG_MEMORY
+# 3003648 MaxBytesInUse
+# 3000576 metadata
+# 3003648 metadata max
+
 import os
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 
@@ -27,8 +33,10 @@ def make_chain_tanh(length=100, name_prefix="a", node_mbs=1):
   node_mbs = 1
   dtype = np.float32
   n = node_mbs * 250000
-  a0_ = tf.ones((n,), dtype=dtype)
-  a0 = tf.Variable(a0_, name=name_prefix+"00")
+  #  a0_ = tf.ones((n,), dtype=dtype)
+  #  a0 = tf.Variable(a0_, name=name_prefix+"00")
+  val = tf.constant(1, dtype=dtype)
+  a0 = tf.fill((n,), val)
   a = a0
   nodes = [a]
   for i in range(1, length):
@@ -41,16 +49,19 @@ def make_chain_tanh(length=100, name_prefix="a", node_mbs=1):
 
 def main():
   tf.reset_default_graph()
-  n = 100
+  n = 3
 
+  # TODO: fix edge case with n=2
   nodes = make_chain_tanh(n)
   a0 = nodes[0]
   a = nodes[-1]
-  grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
+  #grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
+  grad = tf.gradients(a, [a0])[0]
 
   sess = create_session()
   sess.run(tf.global_variables_initializer())
 
+#  feed_dict = {a0, 
   with memory_util.capture_stderr() as stderr:
     sess.run(grad.op)
 
@@ -67,16 +78,38 @@ def main():
   run_metadata = tf.RunMetadata()
   run_options = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
 
-  sess.run(grad.op, run_metadata=run_metadata, options=run_options)
+
+  sess.run(grad.op, run_metadata=run_metadata, options=run_options,)
+  print(run_metadata)
   peak_memory3 = memory_util.peak_from_metadata(run_metadata)['gpu']
-  print(peak_memory1)
-  print(peak_memory2)
-  print(peak_memory3)
-  
-  expected_peak = 20 * 10**6 
+  print(peak_memory1, "VLOG_MEMORY")
+  print(peak_memory2, "MaxBytesInUse")
+  print(peak_memory3, "metadata")
+
+  cpu,gpu=memory_util._retrieve_cpu_gpu_stats(run_metadata)
+  if cpu:
+    bytes_in_use_cpu = [node.memory[0].allocator_bytes_in_use for node in cpu]
+  if gpu:
+    bytes_in_use_gpu = [node.memory[0].allocator_bytes_in_use for node in gpu]
+
+  peak_memory4 = max(bytes_in_use_gpu)
+  print(peak_memory4, "metadata max")
+
+  # fourth way would parse "allocator_bytes_in_use
+   # node_stats {
+   #    node_name: "Square"
+   #    all_start_micros: 1509664297214870
+   #    op_start_rel_micros: 4
+   #    op_end_rel_micros: 115
+   #    all_end_rel_micros: 136
+   #    memory {
+   #      allocator_name: "GPU_0_bfc"
+   #      allocator_bytes_in_use: 6013952
+   #    }
+  expected_peak = 3 * 10**6 
   util.report_memory(peak_memory1, expected_peak)
 
-  assert abs(peak_memory - expected_peak) < 1000, "Difference too large."
+  assert abs(peak_memory3 - expected_peak) < 1000, "Difference too large."
 
 if __name__=='__main__':
   assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
