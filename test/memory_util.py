@@ -472,11 +472,13 @@ def timeline_from_nodestats(nodestats):
   if not nodestats:
     return []
   for node in nodestats:
-    mem = node.memory
-    assert(len(mem) == 1), str(node)
-    records = mem[0].allocation_records
-    allocator = node.memory[0].allocator_name
-    assert len(mem) == 1
+    mem = node.memory[0]
+    assert(len(node.memory) == 1), str(node)
+    try:
+      records = mem.allocation_records
+    except:
+      records = []
+    allocator = mem.allocator_name
     if len(records)>0:
       assert len(records)<=2
       for record in records:
@@ -505,6 +507,8 @@ def _retrieve_cpu_gpu_stats(run_metadata):
     if "gpu:0" == ds.device[-5:].lower():
       gpu_stats = ds.node_stats
   return cpu_stats, gpu_stats
+
+retrieve_cpu_gpu_stats=_retrieve_cpu_gpu_stats
 
 def peak_from_nodestats(nodestats):
   timeline = timeline_from_nodestats(nodestats)

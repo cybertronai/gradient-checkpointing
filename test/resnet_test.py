@@ -34,7 +34,7 @@ BATCH_SIZE=128
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
-RESNET_SIZE=122
+RESNET_SIZE=122 # 20
 
 # debug parameters
 DUMP_GRAPHDEF = False
@@ -57,9 +57,42 @@ def create_loss():
   loss = cross_entropy + _WEIGHT_DECAY * l2_penalty
   return loss
 
+GLOBAL_PROFILE = False
+DUMP_TIMELINES = False
+def sessrun(*args, **kwargs):
+  global sess
+  
+  if not GLOBAL_PROFILE:
+    return sess.run(*args, **kwargs)
+  
+  run_metadata = tf.RunMetadata()
+
+  kwargs['options'] = full_trace_options
+  kwargs['run_metadata'] = run_metadata
+  result = sess.run(*args, **kwargs)
+  first_entry = args[0]
+  if isinstance(first_entry, list):
+    if len(first_entry) == 0 and len(args) == 1:
+      return None
+    first_entry = first_entry[0]
+
+  if DUMP_TIMELINES:
+    name = first_entry.name
+    name = name.replace('/', '-')
+
+    tl = timeline.Timeline(run_metadata.step_stats)
+    ctf = tl.generate_chrome_trace_format()
+    with open('timelines/%s.json'%(name,), 'w') as f:
+      f.write(ctf)
+    with open('timelines/%s.pbtxt'%(name,), 'w') as f:
+      f.write(str(run_metadata))
+
+  return result
 
 def gradient_memory_test():
   """Evaluates gradient, prints peak memory."""
+  global sess
+  
   start_time0 = time.perf_counter()
   loss = create_loss()
 
@@ -77,14 +110,14 @@ def gradient_memory_test():
   print("Graph construction time: %.2f ms" %(time.perf_counter()-start_time))
   
   sess = create_session()
-  sess.run(tf.global_variables_initializer())
-  sess.run(grads)
+  sessrun(tf.global_variables_initializer())
+  sessrun(grads)
   start_time = time.perf_counter()
-  sess.run(grads)
+  sessrun(grads)
   print("Compute time: %.2f ms" %(time.perf_counter()-start_time))
 
   mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-  mem_use = sess.run(mem_op)/1e6
+  mem_use = sessrun(mem_op)/1e6
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   print("Total time: %.2f ms"%(total_time))
