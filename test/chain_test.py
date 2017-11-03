@@ -109,7 +109,7 @@ def main():
   expected_peak = 3 * 10**6 
   util.report_memory(peak_memory1, expected_peak)
 
-  assert abs(peak_memory3 - expected_peak) < 1000, "Difference too large."
+  assert abs(peak_memory3 - expected_peak) < 10000, "Difference too large."
 
 if __name__=='__main__':
   assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
