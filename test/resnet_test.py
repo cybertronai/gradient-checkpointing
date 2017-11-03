@@ -112,14 +112,21 @@ def gradient_memory_test():
 
   start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
-  print("Graph construction time: %.2f ms" %(time.perf_counter()-start_time))
+  print("Graph construction time: %.2f sec" %(time.perf_counter()-start_time))
+
   
+  start_time = time.perf_counter()
   sess = create_session()
+  print("Sess create time: %.2f sec" %(time.perf_counter()-start_time))
+  start_time = time.perf_counter()
   sessrun(tf.global_variables_initializer())
-  sessrun(grads)
+  print("Init time: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(grads)
-  print("Compute time: %.2f ms" %(time.perf_counter()-start_time))
+  print("Compute time0: %.2f sec" %(time.perf_counter()-start_time))
+  start_time = time.perf_counter()
+  sessrun(grads)
+  print("Compute time: %.2f sec" %(time.perf_counter()-start_time))
 
   #  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
   #  mem_use = sessrun(mem_op)/1e6
@@ -127,7 +134,7 @@ def gradient_memory_test():
   
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
-  print("Total time: %.2f ms"%(total_time))
+  print("Total time: %.2f sec"%(total_time))
   assert total_time < 100
   return mem_use
 
