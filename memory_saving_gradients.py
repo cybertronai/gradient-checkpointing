@@ -1,6 +1,8 @@
 from toposort import toposort
 import contextlib
 import numpy as np
+import linearize as linearize_lib
+import networkx as nx
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
@@ -13,6 +15,8 @@ from tensorflow.python.ops.control_flow_ops import MaybeCreateControlFlowState
 import sys
 sys.setrecursionlimit(10000)
 
+
+MIN_CHECKPOINT_NODE_SIZE=1024    # use lower value during testing
 
 # tf.gradients slowness work-around: https://github.com/tensorflow/tensorflow/issues/9901
 def _MyPendingCount(graph, to_ops, from_ops, colocate_gradients_with_ops):
@@ -56,6 +60,9 @@ def gradients_memory(ys, xs, grad_ys=None, **kwargs):
 def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return gradients(ys, xs, grad_ys, remember='collection', **kwargs)
         
+def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
+    return gradients(ys, xs, grad_ys, remember='tarjan', **kwargs)
+
 def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
     Authors: Tim Salimans & Yaroslav Bulatov
@@ -92,7 +99,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                                       inclusive=True,
                                       within_ops=bwd_ops)
 
-    # remove all placeholders and assigns
+    # exclude ops with no inputs, algorithm 
     fwd_ops = [op for op in fwd_ops if op._inputs]
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
@@ -103,11 +110,21 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
-    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
-    ts_all = [t for t in ts_all if nr_elem(t)>1024]
-    ts_all = set(ts_all) - set(xs)
 
-    debug_print("Filtering tensors: %s", ts_all)
+#    print("ts_all", util.format_ops(ts_all))
+#    print("bwd_ops", util.format_ops(bwd_ops))
+#    print("xs", util.format_ops(xs))
+    # remove nodes that have their memory forwarded
+    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
+
+#    print(format_ops(fwd_ops))
+#    print(format_ops(bwd_ops))
+    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
+    ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
+#    print('ts_all', format_ops(ts_all))
+    #    ts_all = set(ts_all) - set(xs)
+
+#    debug_print("Filtering tensors: %s", ts_all)
 
     # construct list of tensors to remember from forward pass, if not given as input
     if type(remember) is not list:
@@ -137,13 +154,19 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
                 for t in ts:
+
                     b = set(ge.get_backward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
-
+#                    print('backward', format_ops(b))
+#                    print('forward', format_ops(f))
                     # check that there are not shortcuts
                     b_inp = set([inp for op in b for inp in op.inputs]).intersection(ts_all)
                     f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
+#                    print('b_inp', format_ops(b_inp))
+#                    print('f_inp', format_ops(f_inp))
+#                    print(len(b_inp), len(f_inp), len(ts_all))
                     if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all)-1:
+ #                       print('bottleneck', t)
                         bottleneck_ts.append(t)  # we have a bottleneck!
 
                 # success? or try again without filtering?
@@ -165,19 +188,64 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
                 remember = sorted_bottlenecks[step::step]
             
+        # use Tarjan's algorithm to find articulation points, use those
+        # as remember nodes
+        # TODO(y): this alg needs to restrict attention to tensors used in
+        # bwd pass
+        elif remember == 'tarjan':
+            graph = util.tf_ops_to_nx_graph(fwd_ops)
+            # TODO: sorted_list missing some nodes
+            # KeyError: <tf.Operation 'batch_normalization_4/FusedBatchNorm' type=FusedBatchNorm>
+            # KeyError: <tf.Operation 'a00' type=VariableV2>
+            # but total order has a00/read instead
+
+            sorted_list = list(linearize_lib.linearize(modify_graph=False))
+            print("total order", format_ops(sorted_list))
+            points = util.sort(nx.articulation_points(graph),
+                               total_order=sorted_list, dedup=True)
+
+            
+            # estimate number of ops that are cached for backward pass
+            # by counting tensors in fwd graph that are inputs to backprop
+            fwd_ts = ge.filter_ts(fwd_ops, True)
+            with util.capture_ops() as bwd_ops:
+                gs = tf_gradients(ys, xs, grad_ys, **kwargs)
+            bwd_inputs = [t for op in bwd_ops for t in op.inputs]
+            fwd_ts_needed = list(set(bwd_inputs).intersection(fwd_ts))
+
+            # can either take sqrt of fwd_ts_needed or sqrt of bottlenecks
+            # the latter works better on tensorflow/models/resnet
+            #num_to_save = math.ceil(np.sqrt(len(fwd_ts_needed)))
+            num_to_save = math.ceil(np.sqrt(len(points)))
+            
+            remember_ops = util.pick_n_equispaced(points, num_to_save)
+
+            if len(remember_ops) != len(set(remember_ops)):
+                debug_print("warning, some points repeated when saving")
+                assert False, "TODO(y): add deduping"
+
+            remember = []
+            for op in remember_ops:
+                assert len(op.outputs) == 1, ("Don't know how to handle this "
+                                              "many outputs")
+                remember.append(op.outputs[0])
+              
         else:
             raise Exception('%s is unsupported input for "remember"' % (remember,))
 
     # at this point automatic selection happened and remember is list of nodes
     assert isinstance(remember, list)
-    
+
+    print("%d remember tensors used" %(len(remember,)))
+    for remember_tensor in remember:
+        print(remember_tensor.name)
+
     debug_print("Remember nodes used: %s", remember)
     # better error handling of special cases
     # xs are already handled as remember nodes, so no need to include them
     xs_intersect_remember = set(xs).intersection(set(remember))
     if xs_intersect_remember:
-        debug_print("Warning, some inputs nodes are also remember nodes: %s",
-              format_ops(xs_intersect_remember))
+        assert False, "Some inputs nodes are also remember nodes: %s"%(format_ops(xs_intersect_remember),)
     ys_intersect_remember = set(ys).intersection(set(remember))
     debug_print("ys: %s, remember: %s, intersect: %s", ys, remember,
                 ys_intersect_remember)
@@ -218,10 +286,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # get gradients with respect to current boundary + original x's
     copied_ys = [info._transformed_ops[y.op]._outputs[0] for y in ys]
     boundary = list(remember_disconnected.values())
-    dv = tf_gradients(copied_ys, boundary+xs, grad_ys, **kwargs)
+    dv = tf_gradients(ys=copied_ys, xs=boundary+xs, grad_ys=grad_ys, **kwargs)
     debug_print("Got gradients %s", dv)
     debug_print("for %s", copied_ys)
     debug_print("with respect to %s", boundary+xs)
+    #    import pdb; pdb.set_trace()
 
     inputs_to_do_before = [y.op for y in ys]
     if grad_ys is not None:
@@ -263,7 +332,8 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         dv = tf_gradients(boundary,
                           remember_disconnected_other+xs,
                           grad_ys=substitute_backprops, **kwargs)
-        debug_print("Got gradients %s", dv[:len(remember_other)])
+        #        debug_print("Got gradients %s", dv[:len(remember_other)])
+        debug_print("Got gradients %s", dv)
         debug_print("for %s", boundary)
         debug_print("with respect to %s", remember_disconnected_other+xs)
         debug_print("with boundary backprop substitutions %s", substitute_backprops)
@@ -335,6 +405,7 @@ def capture_ops():
   op_list.extend(ge.select_ops(scope_name+"/.*", graph=g))
 
 
+DEBUG_LOGGING=True
 DEBUG_LOGGING=False
 def debug_print(s, *args):
   """Like logger.log, but also replaces all TensorFlow ops/tensors with their
@@ -366,3 +437,55 @@ def my_add_control_inputs(wait_to_do_ops, inputs_to_do_before):
         ci = [i for i in inputs_to_do_before if op.control_inputs is None or i not in op.control_inputs]
         ge.add_control_inputs(op, ci)
 
+
+def tf_ops_to_nx_graph(ops):
+  """Convert Tensorflow graph to NetworkX graph."""
+  
+  return nx.Graph(tf_ops_to_graph(ops))
+
+def pick_n_equispaced(l, n):
+  """Picks out n points out of list, at roughly equal intervals."""
+
+  assert len(l) >= n
+  r = (len(l) - n)/float(n)
+  result = []
+  pos = r
+  while pos < len(l):
+    result.append(l[int(pos)])
+    pos += 1+r
+  return result
+
+
+# TODO: turn lists into sets (required by toposort)
+# TODO: ordered dict instead of dict
+def tf_ops_to_graph(ops):
+  """Creates op->children dictionary from list of TensorFlow ops."""
+
+  def flatten(l): return [item for sublist in l for item in sublist]
+  def children(op): return flatten(tensor.consumers() for tensor in op.outputs)
+  return {op: children(op) for op in ops}
+
+
+def tf_ops_to_nx_graph(ops):
+  """Convert Tensorflow graph to NetworkX graph."""
+  
+  return nx.Graph(tf_ops_to_graph(ops))
+
+def sort(nodes, total_order, dedup=False):
+  """Sorts nodes according to order provided.
+  
+  Args:
+    nodes: nodes to sort
+    total_order: list of nodes in correct order
+    dedup: if True, also discards duplicates in nodes
+
+  Returns:
+    Iterable of nodes in sorted order.
+  """
+
+  total_order_idx = {}
+  for i, node in enumerate(total_order):
+    total_order_idx[node] = i
+  if dedup:
+    nodes = set(nodes)
+  return sorted(nodes, key=lambda n: total_order_idx[n])

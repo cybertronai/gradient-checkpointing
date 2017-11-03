@@ -19,6 +19,7 @@ import sys
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
+from tensorflow.core.protobuf import rewriter_config_pb2
 
 assert os.getcwd().endswith("/test"), "must run from 'test' directory"
 sys.path.extend([".."])   # folder with memory_saving_gradients
@@ -27,16 +28,23 @@ import memory_util
 
 import resnet_model   
 
+
+# add_2:0, add_7:0, add_12:0, add_17:0, add_22:0, add_27:0, add_32:0, add_37:0, add_42:0, add_47:0, add_52:0, add_57:0, 
+USE_TINY = False
+
 # resnet parameters
 HEIGHT = 32
 WIDTH = 32
 DEPTH = 3
 NUM_CLASSES = 10
-BATCH_SIZE=128
+if USE_TINY:
+  BATCH_SIZE=10
+else:
+  BATCH_SIZE=128
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
-RESNET_SIZE=122 # 20
+RESNET_SIZE=122
 
 # debug parameters
 DUMP_GRAPHDEF = False
@@ -44,6 +52,7 @@ DUMP_GRAPHDEF = False
 def create_session():
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
   config = tf.ConfigProto(operation_timeout_in_ms=150000, graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
+  config.graph_options.rewrite_options.constant_folding = rewriter_config_pb2.RewriterConfig.OFF
   return tf.Session(config=config)
 
 def create_loss():
@@ -51,8 +60,10 @@ def create_loss():
   images = tf.random_uniform((BATCH_SIZE, HEIGHT, WIDTH, DEPTH))
   labels = tf.random_uniform((BATCH_SIZE, NUM_CLASSES))
   # channels_last for CPU
-  network = resnet_model.cifar10_resnet_v2_generator(RESNET_SIZE, NUM_CLASSES,
-                                                     data_format='channels_last')
+  if USE_TINY:
+    network = resnet_model.tiny_cifar10_resnet_v2_generator(RESNET_SIZE, NUM_CLASSES, data_format='channels_last')
+  else:
+    network = resnet_model.cifar10_resnet_v2_generator(RESNET_SIZE, NUM_CLASSES, data_format='channels_last')
   inputs = tf.reshape(images, [BATCH_SIZE, HEIGHT, WIDTH, DEPTH])
   logits = network(inputs,True)
   cross_entropy = tf.losses.softmax_cross_entropy(logits=logits,
@@ -142,6 +153,9 @@ def gradient_memory_test():
 def main():
   #  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
   old_gradients = tf.gradients
+
+  # TODO: find why this doesn't work with this set to 0
+  memory_saving_gradients.MIN_CHECKPOINT_NODE_SIZE = 100
   
   # automatic checkpoint selection
   def gradients_auto(ys, xs, grad_ys=None, **kwargs):

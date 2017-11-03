@@ -1,9 +1,11 @@
 """Library to force a memory-efficient execution order on TensorFlow graph.
 """
 
+# TODO: add variables back in
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 
+import util # todo remove this
 from collections import OrderedDict
 
 DEBUG = False
@@ -95,9 +97,9 @@ def get_graph(g=None, as_hashes=False, exclude_controls=False):
     else:
       key = op
     if exclude_controls:
-      result[key] = children(op)
+      result[key] = set(children(op))
     else:
-      result[key] = children_with_controls(op)
+      result[key] = set(children_with_controls(op))
   return result
 
 def print_tf_graph(graph):
@@ -137,10 +139,16 @@ def is_iterable(o):
 
 # TODO(y): prevent deadlocks by avoiding linearizing anything with downstream
 # Assign dependencies
+# TODO(y): find out why Variable is not included when linearizing
+# TODO(y): add a function to obtain arbitrary order, use for tests
+def obtain_linear_order(targets=None):
+  return linearize(targets=targets, modify_graph=False)
+
 def linearize(targets=None, modify_graph=True):
   """Obtain a single valid execution order which approximately minimizes
   peak memory usage.
 
+  TODO: deprecate/hide modify_graph arg
   Args:
     targets: specifies list of computation Tensor or op targets. Nones are
         skipped. If not specified, all terminal nodes that are not Assign
@@ -177,8 +185,8 @@ def linearize(targets=None, modify_graph=True):
     active = []
     for node in graph:
       if not graph[node]:  # no children
-        if (node.type != "Assign" and node.type != "AssignAdd" and
-            node.type != "NoOp"):
+#        if (node.type != "Assign" and node.type != "AssignAdd" and
+#            node.type != "NoOp"):
           active.append(node)
 
   last_node = None
@@ -217,4 +225,4 @@ def linearize(targets=None, modify_graph=True):
   if modify_graph:
     return control_edges_added
   else:
-    return reversed(order)
+    return list(reversed(order))
