@@ -10,6 +10,7 @@ Memory used: 1236.68 MB
 
 import os
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
+os.environ['CUDA_VISIBLE_DEVICES']=''
 
 import math
 import numpy as np
@@ -22,6 +23,7 @@ import time
 assert os.getcwd().endswith("/test"), "must run from 'test' directory"
 sys.path.extend([".."])   # folder with memory_saving_gradients
 import memory_saving_gradients
+import memory_util
 
 import resnet_model   
 
@@ -48,7 +50,9 @@ def create_loss():
   """Creates loss tensor for resnet model."""
   images = tf.random_uniform((BATCH_SIZE, HEIGHT, WIDTH, DEPTH))
   labels = tf.random_uniform((BATCH_SIZE, NUM_CLASSES))
-  network = resnet_model.cifar10_resnet_v2_generator(RESNET_SIZE, NUM_CLASSES)
+  # channels_last for CPU
+  network = resnet_model.cifar10_resnet_v2_generator(RESNET_SIZE, NUM_CLASSES,
+                                                     data_format='channels_last')
   inputs = tf.reshape(images, [BATCH_SIZE, HEIGHT, WIDTH, DEPTH])
   logits = network(inputs,True)
   cross_entropy = tf.losses.softmax_cross_entropy(logits=logits,
@@ -57,17 +61,18 @@ def create_loss():
   loss = cross_entropy + _WEIGHT_DECAY * l2_penalty
   return loss
 
-GLOBAL_PROFILE = False
+GLOBAL_PROFILE = True
 DUMP_TIMELINES = False
+run_metadata = True
 def sessrun(*args, **kwargs):
-  global sess
+  global sess, run_metadata
   
   if not GLOBAL_PROFILE:
     return sess.run(*args, **kwargs)
   
   run_metadata = tf.RunMetadata()
 
-  kwargs['options'] = full_trace_options
+  kwargs['options'] = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
   kwargs['run_metadata'] = run_metadata
   result = sess.run(*args, **kwargs)
   first_entry = args[0]
@@ -116,8 +121,10 @@ def gradient_memory_test():
   sessrun(grads)
   print("Compute time: %.2f ms" %(time.perf_counter()-start_time))
 
-  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-  mem_use = sessrun(mem_op)/1e6
+  #  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
+  #  mem_use = sessrun(mem_op)/1e6
+  mem_use = memory_util.peak_memory2(None, run_metadata)/1e6
+  
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   print("Total time: %.2f ms"%(total_time))
@@ -125,8 +132,8 @@ def gradient_memory_test():
   return mem_use
 
 
-if __name__=='__main__':
-  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
+def main():
+  #  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
   old_gradients = tf.gradients
   
   # automatic checkpoint selection
@@ -143,12 +150,16 @@ if __name__=='__main__':
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with manual checkpoints")
-  assert(gradient_memory_test() < 730)
+  #  assert(gradient_memory_test() < 730)
+  assert(gradient_memory_test() < 1000)
 
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   
   print("Running without checkpoints")
-  assert(gradient_memory_test() < 1250)
+  assert(gradient_memory_test() < 1350)
   print("Test passed")
+
+if __name__=='__main__':
+  main()

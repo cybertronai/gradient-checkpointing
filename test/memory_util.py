@@ -244,6 +244,12 @@ def memory_timeline(log):
         result.append((i, alloc_names, alloc_bytes, alloc_type))
     return result
 
+def peak_memory2(log, run_metadata=None, use_gpu=False):
+  if use_gpu:
+    return memory_util.peak_from_metadata(run_metadata)['gpu']
+  else:
+    return memory_util.peak_from_metadata(run_metadata)['cpu']
+
 def peak_memory(log, gpu_only=False):
     """Peak memory used across all devices."""
     peak_memory = -123456789 # to catch bugs
@@ -472,27 +478,25 @@ def timeline_from_nodestats(nodestats):
   if not nodestats:
     return []
   for node in nodestats:
-    mem = node.memory[0]
-    assert(len(node.memory) == 1), str(node)
-    try:
-      records = mem.allocation_records
-    except:
-      records = []
-    allocator = mem.allocator_name
-    if len(records)>0:
-      assert len(records)<=2
-      for record in records:
-        line = [record.alloc_micros, node.node_name, record.alloc_bytes,
-                allocator]
-        lines.append(line)
-    else:
-      output_bytes = -1
+    for mem in node.memory:  # can have both cpu and gpu allocator for op
       try:
-        output_bytes = node.output[0].tensor_description.allocation_description.requested_bytes
+        records = mem.allocation_records
       except:
-        pass
-      line = [node.all_start_micros, node.node_name, 0, "unknown"]
-      lines.append(line)
+        records = []
+      allocator = mem.allocator_name
+      if len(records)>0:
+        for record in records:
+          line = [record.alloc_micros, node.node_name, record.alloc_bytes,
+                  allocator]
+          lines.append(line)
+      else:
+        output_bytes = -1
+        try:
+          output_bytes = node.output[0].tensor_description.allocation_description.requested_bytes
+        except:
+          pass
+        line = [node.all_start_micros, node.node_name, 0, "unknown"]
+        lines.append(line)
   def first_key(x): return x[0]
   return sorted(lines, key=first_key)
 

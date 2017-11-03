@@ -78,7 +78,9 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                         (currently using a very simple strategy that identifies a number of bottleneck tensors in the graph to remember)
             - 'collection': look for a tensorflow collection named 'remember', which holds the tensors to remember
     '''
-#    print("Calling memsaving gradients with", remember)
+        #    TODO: remember collection name to "checkpoints"
+
+    print("Calling memsaving gradients with", remember)
     if not isinstance(ys,list):
         ys = [ys]
     if not isinstance(xs,list):
@@ -111,7 +113,9 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     if type(remember) is not list:
         if remember == 'collection':
             remember = tf.get_collection('remember')
+            #            import pdb; pdb.set_trace()
             remember = list(set(remember).intersection(ts_all))
+            #            print(remember)
             
         elif remember == 'speed':
             # remember all expensive ops to maximize running speed

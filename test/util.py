@@ -18,8 +18,8 @@ def report_memory(peak_memory, expected_peak):
   """Helper utility to print 2 memory stats side by side"""
   
   parent_name = inspect.stack()[1][0].f_code.co_name
-  print("%s: peak memory: %.1f MB, "
-        "expected peak:  %.1f MB" % (parent_name,
+  print("%s: peak memory: %.3f MB, "
+        "expected peak:  %.3f MB" % (parent_name,
                                      peak_memory/10**6,
                                      expected_peak/10**6))
 
