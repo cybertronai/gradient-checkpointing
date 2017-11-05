@@ -37,7 +37,7 @@ def disable_debug():
   DEBUG_LOGGING = False
 
 
-def format_ops(ops, sort_outputs=True):
+def format_ops(ops, sort_outputs=False):
   """Helper method for printing ops. Converts Tensor/Operation op to op.name,
   rest to str(op)."""
     
