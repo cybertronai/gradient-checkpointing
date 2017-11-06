@@ -213,9 +213,8 @@ def test_imagenet_resnet_grads():
   grads = tf.gradients(loss, tf.trainable_variables())
   linearize_lib.linearize(grads)
   grads0 = sess.run(grads)
-  print(grads[0][0,0,0])
+  print(grads0[0][0,0,0,0]) # -0.00288249
 
-  
   expected_loss0 = 3423.3474
   assert abs(loss0-expected_loss0)<1e-3
 
@@ -383,8 +382,10 @@ def test_articulation_points():
 
   
 if __name__=='__main__':
-  test_articulation_points()
+  test_imagenet_resnet_grads()
+  test_toposort()
   sys.exit()
+  test_articulation_points()
   test_toposort()
   test_golden_order()
   

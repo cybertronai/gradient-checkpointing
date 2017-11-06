@@ -13,8 +13,6 @@ os.environ['CUDA_VISIBLE_DEVICES']='' # disable GPU
 module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
 
-# os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
-
 import pytest
 import inspect
 import numpy as np

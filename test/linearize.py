@@ -100,10 +100,12 @@ def to_op(tensor_or_op):
   return tensor_or_op
 
 # Todo: dedup with memory_saving_gradients.to_ops?
-def to_ops(iterable):
-  if not is_iterable(iterable):
-    return iterable
-  return [to_op(i) for i in iterable]
+def to_ops(ll):
+  if ll is None:
+    return None
+  if not is_list_or_tuple(ll):
+    ll = [ll]
+  return [to_op(t) for t in ll]
 
 
 def get_graph(g=None, as_hashes=False, exclude_controls=False,
@@ -125,7 +127,8 @@ def get_graph(g=None, as_hashes=False, exclude_controls=False,
   initialize_control_outputs(g=g)
 
   result = OrderedDict()
-  restrict_to = to_ops(restrict_to)
+  if restrict_to is not None:
+    restrict_to = to_ops(restrict_to)
   
   for op in alphasorted(g.get_operations()):
     if restrict_to is not None and op not in restrict_to:
@@ -320,6 +323,8 @@ def is_iterable(o):
     return False
   return True
 
+def is_list_or_tuple(o):
+  return isinstance(o, list) or isinstance(o, tuple)
 
 def obtain_linear_order(targets=None):
   return linearize(targets=targets, modify_graph=False)
@@ -341,7 +346,7 @@ def _process_targets(targets):
   g = tf.get_default_graph()
   graph = get_graph(g)
 
-  if is_iterable(targets):
+  if is_list_or_tuple(targets):
     targets = to_ops(targets)  # convert Tensors to ops if needed
     targets = [t for t in targets if t is not None]
   elif targets is not None:
@@ -368,11 +373,6 @@ def linearize(targets=None, modify_graph=True):
     Number of control dependencies that were added if modify_graph=True,
     otherwise returns list of ops in this order.
   """
-
-  def to_op(tensor_or_op):
-    if hasattr(tensor_or_op, "op"):
-      return tensor_or_op.op
-    return tensor_or_op
 
   graph, targets = _process_targets(targets)
   parent_graph = reversed_graph(graph)
