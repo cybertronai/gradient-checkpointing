@@ -13,7 +13,8 @@ Memory used: 1236.68 MB
 """
 
 import os, sys
-sys.path.append(os.path.dirname(sys.argv[0])+'/..')
+module_path=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(module_path+'/..')
 
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 

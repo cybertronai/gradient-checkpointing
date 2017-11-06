@@ -4,9 +4,12 @@
 # 3000576 metadata
 # 3003648 metadata max
 
-import os
+import os, sys
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
+module_path=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(module_path+'/..')
 
+import pytest
 import math
 import numpy as np
 import os
@@ -19,6 +22,8 @@ import memory_util
 memory_util.vlog(1)   # vlog=2 on GPU machine will spam gpu "polling" msgs
 import util
 
+
+pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
 
 def create_session():
   config = tf.ConfigProto(log_device_placement=False, graph_options=tf.GraphOptions(optimizer_options=tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)))

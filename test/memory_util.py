@@ -345,9 +345,9 @@ def print_memory_timeline(log, gpu_only=False, ignore_less_than_bytes=0):
         print("%6d %10.1f %10.1f %11s"%(duration[allocation_id], total_memory/1e6, allocated_bytes/1e6, kernel_name))
     print("Peak memory (logs) %.4f"%(peak_memory/1e9,))
 
-import matplotlib.pyplot as plt
 def plot_memory_timeline(log, gpu_only=False, ignore_less_than_bytes=1000):
       
+    import matplotlib.pyplot as plt
     total_memory = 0
     timestamps = []
     data = []
