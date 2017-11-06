@@ -14,6 +14,7 @@ import pprint
 from toposort import toposort
 import resnet_model   
 from tensorflow.core.protobuf import rewriter_config_pb2
+os.environ['CUDA_VISIBLE_DEVICES']=''
 
 
 def test_print():
@@ -336,7 +337,56 @@ def test_prune():
   assert e.op not in pruned
   
 
+def _make_simple_caterpillar_graph(length=5, node_mbs=1):
+  """Length is number of concats."""
+  
+  def make_leaf(i):
+    name = "leaf"+str(i)
+    val = tf.constant(1)
+    return val
+   
+  def make_merge(a, b, i):
+    name = "merge"+str(i)
+    merge_node = tf.add(a, b, name=name)
+    return merge_node
+
+  leaf0 = make_leaf(0)
+  node0 = tf.identity(leaf0, name="merge0")
+  node = node0
+  nodes = [node]
+  
+  for i in range(1, length+1):
+    leaf = make_leaf(i)
+    node = make_merge(node, leaf, i)
+    nodes.append(node)
+  return nodes
+
+
+def test_articulation_points():
+  tf.reset_default_graph()
+  n = 5
+  nodes = util.make_chain_tanh_constant(n)
+  a0 = nodes[0]
+  a = nodes[-1]
+  points = linearize_lib.sorted_articulation_points(None)
+  # original list is ['a00', 'a01', 'a02', 'a03', 'a04']
+  # end-points are not considered separators, so result should be
+  assert util.format_ops(points) == ['a01', 'a02', 'a03']
+  
+  tf.reset_default_graph()
+  n = 5
+  nodes = _make_simple_caterpillar_graph(n)
+  a0 = nodes[0]
+  a = nodes[-1] 
+  points = linearize_lib.sorted_articulation_points(None)
+  
+  assert util.format_ops(points) ==  ['merge0', 'merge1', 'merge2',
+                                       'merge3', 'merge4', 'merge5']
+
+  
 if __name__=='__main__':
+  test_articulation_points()
+  sys.exit()
   test_toposort()
   test_golden_order()
   

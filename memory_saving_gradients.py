@@ -6,6 +6,7 @@ import networkx as nx
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
+import math
 
 # save original gradients since tf.gradient could be monkey-patched to point to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
@@ -95,12 +96,21 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
     bwd_ops = ge.get_backward_walk_ops([y.op for y in ys],
                                        inclusive=True)
+
+    debug_print("bwd_ops: %s", bwd_ops)
+    # forward ops are all ops that are candidates for recomputation
     fwd_ops = ge.get_forward_walk_ops([x.op for x in xs],
                                       inclusive=True,
                                       within_ops=bwd_ops)
-
-    # exclude ops with no inputs, algorithm 
+    debug_print("fwd_ops: %s", bwd_ops)
+    
+    # exclude ops with no inputs, algorithm
+    # todo(y): reenable
     fwd_ops = [op for op in fwd_ops if op._inputs]
+
+    # don't recompute xs
+    xs_ops = _to_ops(xs)
+    fwd_ops = [op for op in fwd_ops if not op in xs_ops]
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
@@ -192,26 +202,33 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         # as remember nodes
         # TODO(y): this alg needs to restrict attention to tensors used in
         # bwd pass
+        # todo: rename to memory2
+        # todo: remove grad_ys since not tested
         elif remember == 'tarjan':
-            graph = util.tf_ops_to_nx_graph(fwd_ops)
-            # TODO: sorted_list missing some nodes
-            # KeyError: <tf.Operation 'batch_normalization_4/FusedBatchNorm' type=FusedBatchNorm>
-            # KeyError: <tf.Operation 'a00' type=VariableV2>
-            # but total order has a00/read instead
-
-            sorted_list = list(linearize_lib.linearize(modify_graph=False))
-            print("total order", format_ops(sorted_list))
-            points = util.sort(nx.articulation_points(graph),
-                               total_order=sorted_list, dedup=True)
-
+            original_points = linearize_lib.sorted_articulation_points(ys)
+            #print('found articulation points', _format_ops(original_points))
+            assert original_points, "No articulation points found."
             
-            # estimate number of ops that are cached for backward pass
-            # by counting tensors in fwd graph that are inputs to backprop
+            # restrict to tensors in fwd graph that are inputs to backprop
             fwd_ts = ge.filter_ts(fwd_ops, True)
             with util.capture_ops() as bwd_ops:
                 gs = tf_gradients(ys, xs, grad_ys, **kwargs)
             bwd_inputs = [t for op in bwd_ops for t in op.inputs]
             fwd_ts_needed = list(set(bwd_inputs).intersection(fwd_ts))
+            
+            xs_ops = _to_ops(xs)
+            # todo: clean-up
+            #fwd_ops = _to_ops(fwd_ts_needed)
+#            points = [p for p in original_points if (p in fwd_ops and
+#                                                     p not in xs_ops)]
+            points = [p for p in original_points if p not in xs_ops]
+            debug_print("xs_ops: %s", xs_ops)
+            debug_print("original_points: %s", original_points)
+            debug_print("points: %s", points)
+
+            # remove ops with multiple outputs, it breaks algorithm
+            # points = [p for p in points if len(p.outputs)<=1]
+            # todo: remove ops which have memory forwarded
 
             # can either take sqrt of fwd_ts_needed or sqrt of bottlenecks
             # the latter works better on tensorflow/models/resnet
@@ -226,9 +243,10 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
             remember = []
             for op in remember_ops:
-                assert len(op.outputs) == 1, ("Don't know how to handle this "
-                                              "many outputs")
-                remember.append(op.outputs[0])
+              #assert len(op.outputs) == 1, ("Don't know how to handle this "
+              #"many outputs")
+                for output in op.outputs:
+                  remember.append(output)
               
         else:
             raise Exception('%s is unsupported input for "remember"' % (remember,))
@@ -245,7 +263,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # xs are already handled as remember nodes, so no need to include them
     xs_intersect_remember = set(xs).intersection(set(remember))
     if xs_intersect_remember:
-        assert False, "Some inputs nodes are also remember nodes: %s"%(format_ops(xs_intersect_remember),)
+        assert False, "Some input nodes are also remember nodes: %s"%(format_ops(xs_intersect_remember),)
     ys_intersect_remember = set(ys).intersection(set(remember))
     debug_print("ys: %s, remember: %s, intersect: %s", ys, remember,
                 ys_intersect_remember)
@@ -272,9 +290,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         remember_disconnected[x] = grad_node
 
     # partial derivatives to the remembered tensors and xs
-    ops_to_copy = fast_backward_ops(seed_ops=[y.op for y in ys], stop_at_ts=remember, within_ops=fwd_ops)
-    debug_print("Found %s ops to copy within ys %s, seed %s, stop_at %s",
+    ops_to_copy = fast_backward_ops(seed_ops=[y.op for y in ys],
+                                    stop_at_ts=remember, within_ops=fwd_ops)
+    debug_print("Found %s ops to copy within fwd_ops %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ys], remember)
+    debug_print("ops_to_copy = %s", ops_to_copy)
     debug_print("Processing list %s", ys)
     copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
     copied_ops = info._transformed_ops.values()
@@ -313,10 +333,12 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         remember_disconnected_other = [remember_disconnected[r] for r in remember_other]
 
         # copy part of the graph below current remember node, stopping at other remember nodes
+        # YCHANGE: add xs to stopping criterion
         ops_to_copy = fast_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=remember_other)
         debug_print("Found %s ops to copy within %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ts],
                     remember_other)
+        debug_print("ops_to_copy = %s", ops_to_copy)
         if not ops_to_copy: # we're done!
             break
         copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
@@ -403,6 +425,39 @@ def capture_ops():
 
   g = tf.get_default_graph()
   op_list.extend(ge.select_ops(scope_name+"/.*", graph=g))
+
+
+def _to_op(tensor_or_op):
+  if hasattr(tensor_or_op, "op"):
+    return tensor_or_op.op
+  return tensor_or_op
+
+
+def _to_ops(iterable):
+  if not _is_iterable(iterable):
+    return iterable
+  return [_to_op(i) for i in iterable]
+
+def _format_ops(ops, sort_outputs=False):
+  """Helper method for printing ops. Converts Tensor/Operation op to op.name,
+  rest to str(op)."""
+    
+  if hasattr(ops, '__iter__') and not isinstance(ops, str):
+    l = [(op.name if hasattr(op, "name") else str(op)) for op in ops]
+    if sort_outputs:
+      return sorted(l)
+    return l
+  else:
+    return ops.name if hasattr(ops, "name") else str(ops)
+    
+
+def _is_iterable(o):
+  try:
+    _ = iter(o)
+  except Exception:
+    return False
+  return True
+
 
 
 DEBUG_LOGGING=True

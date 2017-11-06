@@ -355,14 +355,11 @@ def test_chain_tarjan(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="tarjan"
   strategy."""
 
-  print("Tarjan test disabled")
-  return
-
   tf.reset_default_graph()
   n = 6  # for n=5, only choice of a2 saves memory, and alg picks a3
          # hence use n>5 to avoid this edge condition
 
-  nodes = make_chain_tanh_constant(n)
+  nodes = util.make_chain_tanh_fill(n)
   a0 = nodes[0]
   a = nodes[-1]
   grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
@@ -377,11 +374,10 @@ def test_chain_tarjan(linearize=False):
     linearize_lib.linearize()
 
   peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
-  expected_peak = (n+1-1)*10**6  # 1 for each node + 1 for generated - 1 saved
-                                 # "loss" tensor
+  expected_peak = 5e6  # originally needed 7 units, now a3,a5 are recomputed
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
+    assert abs(peak_memory - expected_peak) < 1e5, "Difference too large."
 
 def test_long_chain_memory(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="memory" 
@@ -423,9 +419,6 @@ def test_long_chain_tarjan(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="tarjan" 
   strategy."""
 
-  print("Tarjan test disabled")
-  return
-
   tf.reset_default_graph()
   n = 100
 
@@ -445,14 +438,14 @@ def test_long_chain_tarjan(linearize=False):
     print("Added deps: ", added)
 
   peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
-  # 20 mem used with following tensors picked automatically as bottlenecks
-  # ['a10:0', 'a19:0', 'a28:0', 'a37:0', 'a46:0', 'a55:0', 'a64:0', 'a73:0',
-  # 'a82:0', 'a91:0']
-  expected_peak = 20 * 10**6 
+  # points picked
+  #  a09:0,19:0,a29:0,a39:0,a49:0,a58:0,a68:0,a78:0,a88:0,a97:0
+  expected_peak = 18e6
   util.report_memory(peak_memory, expected_peak)
 
+  # todo: remove "REMOVE_ASSERTS"
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
+    assert abs(peak_memory - expected_peak) < 1e5, "Difference too large."
 
 
 def test_minimal_resnet(linearize=False):
@@ -604,9 +597,6 @@ def test_long_resnet_rewrite_memory(linearize=False):
     assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_long_resnet_rewrite_tarjan(linearize=False):
-  print("Tarjan test disabled")
-  return
-
   tf.reset_default_graph()
   n = 100
   nodes = make_resnet(n)
@@ -615,7 +605,7 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
 
   start_time = time.time()
   with tf.control_dependencies([a]):
-      grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
+    grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
   print("Elapsed time, %.1f ms" %( (time.time()-start_time)*1000))
 
   start_time = time.time()
@@ -635,7 +625,7 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
   # ['a10_add:0', 'a19_add:0', 'a28_add:0', 'a37_add:0', 'a46_add:0',
   # 'a55_add:0', 'a64_add:0', 'a73_add:0', 'a82_add:0', 'a91_add:0']
 
-  expected_peak = 20 * 10**6 
+  expected_peak = 18 * 10**6 
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
@@ -674,9 +664,6 @@ def test_resnet_rewrite_memory(linearize=False):
     assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
 
 def test_resnet_rewrite_tarjan(linearize=False):
-  print("Tarjan test disabled")
-  return
-
   tf.reset_default_graph()
   n = 6   # use n>5 (see test_chain_memory)
 
@@ -698,10 +685,7 @@ def test_resnet_rewrite_tarjan(linearize=False):
     sessrun(grad.op)
 
   peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
-  # 1 for activation of each tanh node + 1 for initial backprop node
-  # + 1 temporary memory for computing the adds,
-  # -1 for discarding, then recomputing a1_tanh
-  expected_peak = (n+1+1-1)*10**6 
+  expected_peak = 4e6
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
@@ -710,9 +694,9 @@ def test_resnet_rewrite_tarjan(linearize=False):
       
 if __name__ == '__main__':
   # disable GPUs for consistent results between gpu/non-gpu machines
-  #  os.environ['CUDA_VISIBLE_DEVICES']=''
-  #  memory_util.vlog(1)   # vlog=2 on GPU machine will spam gpu "polling" msgs
-
+  os.environ['CUDA_VISIBLE_DEVICES']='' 
+ 
+  # manual rewriting tests
   test_chain()
   test_chain_rewrite(linearize=True)
   test_chain_rewrite_save_first()
@@ -720,30 +704,30 @@ if __name__ == '__main__':
   test_chain_rewrite_save_one_before_last()
   test_dual_chain()
   test_dual_chain_rewrite()
-  
-  #  test_chain_memory()
-  #  test_chain_memory(linearize=True)
-
-  # TODO: fix, now it uses only ['a01:0'] as remember node
-  #  test_long_chain_memory(linearize=False)
-  #test_long_chain_memory(linearize=True)
-  
   test_minimal_resnet()
   test_minimal_resnet(linearize=True)
   test_resnet_rewrite()
   test_resnet_rewrite(linearize=True)
+  test_long_resnet()
+
+  # automatic rewriting using networkx/Tarjan's algorithm to find bottlenecks
+  test_chain_tarjan()
+  test_long_chain_tarjan()
+  test_long_chain_tarjan(linearize=True)
+  test_resnet_rewrite_tarjan()
+  test_chain_tarjan()
+  test_long_resnet_rewrite_tarjan(linearize=True)
+
+
+  # automatic rewriting using Tim's algorithm to find bottlenecks
+  #  test_chain_memory()
+  #  test_chain_memory(linearize=True)
+  #  test_long_chain_memory(linearize=False) 
+  #  test_long_chain_memory(linearize=True)
   #  test_resnet_rewrite_memory()
   #  test_resnet_rewrite_memory(linearize=True)
-  test_long_resnet()
   #  test_long_resnet_rewrite_memory()
   #  test_long_resnet_rewrite_memory(linearize=True)
   
-  # test_chain_tarjan()
-  # test_long_chain_tarjan()
-  # test_long_chain_tarjan(linearize=True)
-
-  # test_resnet_rewrite_tarjan()
-  # test_long_resnet_rewrite_tarjan(linearize=True)
-
   print("%s tests succeeded"%(sys.argv[0],))
 

@@ -8,6 +8,8 @@ import tensorflow.contrib.graph_editor as ge
 from toposort import toposort
 
 from collections import OrderedDict
+import util
+import networkx as nx
 
 DEBUG = False
 
@@ -97,7 +99,7 @@ def to_op(tensor_or_op):
     return tensor_or_op.op
   return tensor_or_op
 
-
+# Todo: dedup with memory_saving_gradients.to_ops?
 def to_ops(iterable):
   if not is_iterable(iterable):
     return iterable
@@ -323,6 +325,34 @@ def obtain_linear_order(targets=None):
   return linearize(targets=targets, modify_graph=False)
 
 
+def _process_targets(targets):
+  """Helper utility to help variation in targets input type:
+  -- it can be iterable vs simple list
+  -- it can contain Operation objects or Tensor objects, convert to Operation
+  -- it can be a single target
+
+  Ignores variable ops (Variable and Assign) when making graph because adding
+  dependencies to those breaks initialization.
+
+  Returns: graph in "source_node->target_node" form
+           targets as list of Operation objects
+  """
+  
+  g = tf.get_default_graph()
+  graph = get_graph(g)
+
+  if is_iterable(targets):
+    targets = to_ops(targets)  # convert Tensors to ops if needed
+    targets = [t for t in targets if t is not None]
+  elif targets is not None:
+    targets = [to_op(targets)]
+  else:
+    targets = list(graph.keys())
+
+  graph = prune_graph(graph, targets)
+  graph = remove_variable_ops_from_graph(graph)
+  return graph, targets
+
 def linearize(targets=None, modify_graph=True):
   """Obtain a single valid execution order which approximately minimizes
   peak memory usage.
@@ -343,20 +373,8 @@ def linearize(targets=None, modify_graph=True):
     if hasattr(tensor_or_op, "op"):
       return tensor_or_op.op
     return tensor_or_op
-  
-  g = tf.get_default_graph()
-  graph = get_graph(g)  # todo, rename get_graph
 
-  if is_iterable(targets):
-    targets = to_ops(targets)  # convert Tensors to ops if needed
-    targets = [t for t in targets if t is not None]
-  elif targets is not None:
-    targets = [to_op(targets)]
-  else:
-    targets = list(graph.keys())
-
-  graph = prune_graph(graph, targets)
-  graph = remove_variable_ops_from_graph(graph)
+  graph, targets = _process_targets(targets)
   parent_graph = reversed_graph(graph)
 
   toposort(copy_graph(graph))   # raises exception if there are cycles
@@ -415,3 +433,38 @@ def linearize(targets=None, modify_graph=True):
   else:
     result = list(reversed(order))
     return result
+
+def _sort(nodes, total_order, dedup=False):
+  """Sorts nodes according to order provided.
+  
+  Args:
+    nodes: nodes to sort
+    total_order: list of nodes in correct order
+    dedup: if True, also discards duplicates in nodes
+
+  Returns:
+    Iterable of nodes in sorted order.
+  """
+
+  total_order_idx = {}
+  for i, node in enumerate(total_order):
+    total_order_idx[node] = i
+  if dedup:
+    nodes = OrderedSet(nodes)
+  return sorted(nodes, key=lambda n: total_order_idx[n])
+
+
+def sorted_articulation_points(targets):
+  """Returns list of articulation points (cut vertices) sorted in according
+  to the execution order provided by linearize."""
+  
+  graph, targets = _process_targets(targets)
+  sorted_list = list(obtain_linear_order(targets))
+
+  nx_graph = nx.Graph(graph)
+  points = _sort(nx.articulation_points(nx_graph),
+                 total_order=sorted_list, dedup=True)
+  from pprint import pprint as pp
+  pp(util.format_ops(points))
+  return points
+

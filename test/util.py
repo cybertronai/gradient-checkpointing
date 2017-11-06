@@ -198,6 +198,22 @@ def make_chain_tanh_constant(length=100, name_prefix="a", node_mbs=1):
     
   return nodes
 
+def make_chain_tanh_fill(length=100, name_prefix="a", node_mbs=1):
+  """Creates chain of length length. First node is Variable, rest are tanh.
+  Returns nodes. Note, if length is 1, there are no non-linearities in the
+  graph, hence gradients do not need to store any activations."""
+
+  dtype = np.float32
+  n = node_mbs * 250000
+  val = tf.constant(1, dtype=dtype)
+  a0 = tf.fill((n,), val)
+  a = a0
+  nodes = [a]
+  for i in range(1, length):
+    name = "%s%02d"%(name_prefix, i)
+    a = tf.tanh(a, name=name)
+    nodes.append(a)
+  return nodes
 
 def make_resnet(length=100, name_prefix="a", node_mbs=1):
   """Creates resnet-like chain of length length. First node is constant,
@@ -213,6 +229,24 @@ def make_resnet(length=100, name_prefix="a", node_mbs=1):
     name = "%s%02d"%(name_prefix, i)
     a_nonlin = tf.tanh(a, name=name+"_tanh")
     a = tf.add(a, a_nonlin, name=name+"_add")
+    nodes.append(a)
+    
+  return nodes
+
+def make_resnet_custom(length=100, name_prefix="a", node_mbs=1):
+  """Creates resnet-like chain of length length. First node is constant,
+  rest are tanh.  Returns list of nodes. Has length - 2 articulation points (ie 
+  for length=3 there is 1 articulation point."""
+
+  dtype = np.float32
+  n = node_mbs * 250000
+  a0 = tf.ones((n,), dtype=dtype, name=name_prefix+"00")
+  a = a0
+  nodes = [a]
+  for i in range(1, length):
+    name = "%s%02d"%(name_prefix, i)
+    a_nonlin = tf.tanh(a, name=name+"_tanh")
+    a = tf.sigmoid(tf.add(a, a_nonlin, name=name+"_add"))
     nodes.append(a)
     
   return nodes
@@ -280,3 +314,21 @@ def sort(nodes, total_order, dedup=False):
   if dedup:
     nodes = set(nodes)
   return sorted(nodes, key=lambda n: total_order_idx[n])
+
+def to_ops(iterable):
+  if not is_iterable(iterable):
+    return iterable
+  return [to_op(i) for i in iterable]
+
+
+def intercept_op_creation(op_type_name_to_intercept):
+  """Drops into PDB when particular op type is added to graph."""
+  from tensorflow.python.framework import op_def_library
+  old_apply_op = op_def_library.OpDefLibrary.apply_op
+  def my_apply_op(obj, op_type_name, name=None, **keywords):
+    import pdb; pdb.set_trace()
+    print(op_type_name+"-"+str(name))
+    if op_type_name == op_type_name_to_intercept:
+      import pdb; pdb.set_trace()
+    return(old_apply_op(obj, op_type_name, name=name, **keywords))
+  op_def_library.OpDefLibrary.apply_op=my_apply_op
