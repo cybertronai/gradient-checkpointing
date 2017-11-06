@@ -1,0 +1,420 @@
+node {
+  name: "a00"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+          dim {
+            size: 250000
+          }
+        }
+        float_val: 1.0
+      }
+    }
+  }
+}
+node {
+  name: "a01_tanh"
+  op: "Tanh"
+  input: "a00"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a01_add"
+  op: "Add"
+  input: "a00"
+  input: "a01_tanh"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "Sigmoid"
+  op: "Sigmoid"
+  input: "a01_add"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a02_tanh"
+  op: "Tanh"
+  input: "Sigmoid"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a02_add"
+  op: "Add"
+  input: "Sigmoid"
+  input: "a02_tanh"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "Sigmoid_1"
+  op: "Sigmoid"
+  input: "a02_add"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a03_tanh"
+  op: "Tanh"
+  input: "Sigmoid_1"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a03_add"
+  op: "Add"
+  input: "Sigmoid_1"
+  input: "a03_tanh"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "Sigmoid_2"
+  op: "Sigmoid"
+  input: "a03_add"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a04_tanh"
+  op: "Tanh"
+  input: "Sigmoid_2"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "a04_add"
+  op: "Add"
+  input: "Sigmoid_2"
+  input: "a04_tanh"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "Sigmoid_3"
+  op: "Sigmoid"
+  input: "a04_add"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/Shape"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_INT32
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_INT32
+        tensor_shape {
+          dim {
+            size: 1
+          }
+        }
+        int_val: 250000
+      }
+    }
+  }
+}
+node {
+  name: "gradients/grad_ys_0"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 1.0
+      }
+    }
+  }
+}
+node {
+  name: "gradients/Fill"
+  op: "Fill"
+  input: "gradients/Shape"
+  input: "gradients/grad_ys_0"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/Sigmoid_3_grad/SigmoidGrad"
+  op: "SigmoidGrad"
+  input: "Sigmoid_3"
+  input: "gradients/Fill"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/a04_tanh_grad/TanhGrad"
+  op: "TanhGrad"
+  input: "a04_tanh"
+  input: "gradients/Sigmoid_3_grad/SigmoidGrad"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/AddN"
+  op: "AddN"
+  input: "gradients/Sigmoid_3_grad/SigmoidGrad"
+  input: "gradients/a04_tanh_grad/TanhGrad"
+  attr {
+    key: "N"
+    value {
+      i: 2
+    }
+  }
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "_class"
+    value {
+      list {
+        s: "loc:@gradients/Sigmoid_3_grad/SigmoidGrad"
+      }
+    }
+  }
+}
+node {
+  name: "gradients/Sigmoid_2_grad/SigmoidGrad"
+  op: "SigmoidGrad"
+  input: "Sigmoid_2"
+  input: "gradients/AddN"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/a03_tanh_grad/TanhGrad"
+  op: "TanhGrad"
+  input: "a03_tanh"
+  input: "gradients/Sigmoid_2_grad/SigmoidGrad"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/AddN_1"
+  op: "AddN"
+  input: "gradients/Sigmoid_2_grad/SigmoidGrad"
+  input: "gradients/a03_tanh_grad/TanhGrad"
+  attr {
+    key: "N"
+    value {
+      i: 2
+    }
+  }
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "_class"
+    value {
+      list {
+        s: "loc:@gradients/Sigmoid_2_grad/SigmoidGrad"
+      }
+    }
+  }
+}
+node {
+  name: "gradients/Sigmoid_1_grad/SigmoidGrad"
+  op: "SigmoidGrad"
+  input: "Sigmoid_1"
+  input: "gradients/AddN_1"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/a02_tanh_grad/TanhGrad"
+  op: "TanhGrad"
+  input: "a02_tanh"
+  input: "gradients/Sigmoid_1_grad/SigmoidGrad"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/AddN_2"
+  op: "AddN"
+  input: "gradients/Sigmoid_1_grad/SigmoidGrad"
+  input: "gradients/a02_tanh_grad/TanhGrad"
+  attr {
+    key: "N"
+    value {
+      i: 2
+    }
+  }
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "_class"
+    value {
+      list {
+        s: "loc:@gradients/Sigmoid_1_grad/SigmoidGrad"
+      }
+    }
+  }
+}
+node {
+  name: "gradients/Sigmoid_grad/SigmoidGrad"
+  op: "SigmoidGrad"
+  input: "Sigmoid"
+  input: "gradients/AddN_2"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/a01_tanh_grad/TanhGrad"
+  op: "TanhGrad"
+  input: "a01_tanh"
+  input: "gradients/Sigmoid_grad/SigmoidGrad"
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+}
+node {
+  name: "gradients/AddN_3"
+  op: "AddN"
+  input: "gradients/Sigmoid_grad/SigmoidGrad"
+  input: "gradients/a01_tanh_grad/TanhGrad"
+  attr {
+    key: "N"
+    value {
+      i: 2
+    }
+  }
+  attr {
+    key: "T"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "_class"
+    value {
+      list {
+        s: "loc:@gradients/Sigmoid_grad/SigmoidGrad"
+      }
+    }
+  }
+}
+versions {
+  producer: 24
+}

@@ -34,7 +34,8 @@ import memory_util
 
 import resnet_model   
 
-pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
+pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
+                                reason="needs gpu")
 
 resnet_model._DISABLE_BATCH_NORM=False
 
@@ -115,7 +116,7 @@ def sessrun(*args, **kwargs):
 
   return result
 
-def gradient_memory_test():
+def gradient_memory_measure():
   """Evaluates gradient, prints peak memory."""
   global sess
   
@@ -159,6 +160,27 @@ def gradient_memory_test():
   assert total_time < 100
   return mem_use
 
+def test_memory_method_saves_memory():
+  #  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
+  old_gradients = tf.gradients
+
+  # TODO: find why this doesn't work with this set to 0
+  memory_saving_gradients.MIN_CHECKPOINT_NODE_SIZE = 100
+
+  # automatic checkpoint selection
+  def gradients_memory(ys, xs, grad_ys=None, **kwargs):
+    return memory_saving_gradients.gradients(ys, xs, grad_ys,
+                                             remember='memory', **kwargs)
+  tf.__dict__["gradients"] = gradients_memory
+  print("Running with memory")
+  assert(gradient_memory_measure() < 300)
+  gradient_memory_measure()
+
+  tf.__dict__["gradients"] = old_gradients
+  print("Running without checkpoints")
+  assert(gradient_memory_measure() > 1000)
+
+
 
 def main():
   #  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
@@ -178,7 +200,7 @@ def main():
   #                                            remember='tarjan', **kwargs)
   # tf.__dict__["gradients"] = gradients_tarjan
   # print("Running with tarjan")
-  # assert(gradient_memory_test() < 720)
+  # assert(gradient_memory_measure() < 720)
   # return
 
   # automatic checkpoint selection
@@ -187,8 +209,7 @@ def main():
                                              remember='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
-  assert(gradient_memory_test() < 250)
-  gradient_memory_test()
+  assert(gradient_memory_measure() < 250)
   
   # replace tf.gradients with custom version
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
@@ -196,15 +217,15 @@ def main():
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with manual checkpoints")
-  #  assert(gradient_memory_test() < 730)
-  assert(gradient_memory_test() < 1000)
+  #  assert(gradient_memory_measure() < 730)
+  assert(gradient_memory_measure() < 1000)
 
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   
   print("Running without checkpoints")
-  assert(gradient_memory_test() < 1350)
+  assert(gradient_memory_measure() < 1350)
   print("Test passed")
 
 if __name__=='__main__':

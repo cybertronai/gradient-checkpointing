@@ -23,7 +23,8 @@ memory_util.vlog(1)   # vlog=2 on GPU machine will spam gpu "polling" msgs
 import util
 
 
-pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
+pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
+                                reason="needs gpu")
 
 def create_session():
   config = tf.ConfigProto(log_device_placement=False, graph_options=tf.GraphOptions(optimizer_options=tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)))

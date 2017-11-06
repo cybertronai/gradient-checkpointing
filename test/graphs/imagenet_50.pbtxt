@@ -17,7 +17,7 @@ node {
             size: 4
           }
         }
-        tensor_content: "\010\000\000\000\340\000\000\000\340\000\000\000\003\000\000\000"
+        tensor_content: "\001\000\000\000\340\000\000\000\340\000\000\000\003\000\000\000"
       }
     }
   }
@@ -148,7 +148,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\010\000\000\000\351\003\000\000"
+        tensor_content: "\001\000\000\000\351\003\000\000"
       }
     }
   }
@@ -279,7 +279,7 @@ node {
             size: 4
           }
         }
-        tensor_content: "\010\000\000\000\340\000\000\000\340\000\000\000\003\000\000\000"
+        tensor_content: "\001\000\000\000\340\000\000\000\340\000\000\000\003\000\000\000"
       }
     }
   }
@@ -297,48 +297,6 @@ node {
   }
   attr {
     key: "Tshape"
-    value {
-      type: DT_INT32
-    }
-  }
-}
-node {
-  name: "transpose/perm"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\000\000\000\000\003\000\000\000\001\000\000\000\002\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "transpose"
-  op: "Transpose"
-  input: "Reshape"
-  input: "transpose/perm"
-  attr {
-    key: "T"
-    value {
-      type: DT_FLOAT
-    }
-  }
-  attr {
-    key: "Tperm"
     value {
       type: DT_INT32
     }
@@ -366,7 +324,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\003\000\000\000\003\000\000\000\003\000\000\000\003\000\000\000"
+        tensor_content: "\000\000\000\000\000\000\000\000\003\000\000\000\003\000\000\000\003\000\000\000\003\000\000\000\000\000\000\000\000\000\000\000"
       }
     }
   }
@@ -374,7 +332,7 @@ node {
 node {
   name: "Pad"
   op: "Pad"
-  input: "transpose"
+  input: "Reshape"
   input: "Pad/paddings"
   attr {
     key: "T"
@@ -657,31 +615,7 @@ node {
   }
 }
 node {
-  name: "conv2d/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\007\000\000\000\007\000\000\000\003\000\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d/convolution/dilation_rate"
+  name: "conv2d/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -705,7 +639,7 @@ node {
   }
 }
 node {
-  name: "conv2d/convolution"
+  name: "conv2d/Conv2D"
   op: "Conv2D"
   input: "Pad"
   input: "conv2d/kernel/read"
@@ -718,7 +652,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -732,9 +666,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -748,7 +682,7 @@ node {
 node {
   name: "initial_conv"
   op: "Identity"
-  input: "conv2d/convolution"
+  input: "conv2d/Conv2D"
   attr {
     key: "T"
     value {
@@ -769,7 +703,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -777,9 +711,9 @@ node {
     value {
       list {
         i: 1
+        i: 3
+        i: 3
         i: 1
-        i: 3
-        i: 3
       }
     }
   }
@@ -794,9 +728,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -1321,19 +1255,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -1616,31 +1571,7 @@ node {
   }
 }
 node {
-  name: "conv2d_2/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000@\000\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_2/convolution/dilation_rate"
+  name: "conv2d_2/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -1664,7 +1595,7 @@ node {
   }
 }
 node {
-  name: "conv2d_2/convolution"
+  name: "conv2d_2/Conv2D"
   op: "Conv2D"
   input: "Relu"
   input: "conv2d_1/kernel/read"
@@ -1677,7 +1608,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -1972,31 +1903,7 @@ node {
   }
 }
 node {
-  name: "conv2d_3/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000@\000\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_3/convolution/dilation_rate"
+  name: "conv2d_3/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -2020,7 +1927,7 @@ node {
   }
 }
 node {
-  name: "conv2d_3/convolution"
+  name: "conv2d_3/Conv2D"
   op: "Conv2D"
   input: "Relu"
   input: "conv2d_2/kernel/read"
@@ -2033,7 +1940,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -2555,7 +2462,7 @@ node {
 node {
   name: "batch_normalization_2/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_3/convolution"
+  input: "conv2d_3/Conv2D"
   input: "batch_normalization_1/gamma/read"
   input: "batch_normalization_1/beta/read"
   input: "batch_normalization_1/moving_mean/read"
@@ -2569,19 +2476,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_2/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -2864,31 +2792,7 @@ node {
   }
 }
 node {
-  name: "conv2d_4/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000@\000\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_4/convolution/dilation_rate"
+  name: "conv2d_4/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -2912,7 +2816,7 @@ node {
   }
 }
 node {
-  name: "conv2d_4/convolution"
+  name: "conv2d_4/Conv2D"
   op: "Conv2D"
   input: "Relu_1"
   input: "conv2d_3/kernel/read"
@@ -2925,7 +2829,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -3447,7 +3351,7 @@ node {
 node {
   name: "batch_normalization_3/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_4/convolution"
+  input: "conv2d_4/Conv2D"
   input: "batch_normalization_2/gamma/read"
   input: "batch_normalization_2/beta/read"
   input: "batch_normalization_2/moving_mean/read"
@@ -3461,19 +3365,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_3/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -3756,31 +3681,7 @@ node {
   }
 }
 node {
-  name: "conv2d_5/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000@\000\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_5/convolution/dilation_rate"
+  name: "conv2d_5/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -3804,7 +3705,7 @@ node {
   }
 }
 node {
-  name: "conv2d_5/convolution"
+  name: "conv2d_5/Conv2D"
   op: "Conv2D"
   input: "Relu_2"
   input: "conv2d_4/kernel/read"
@@ -3817,7 +3718,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -3847,8 +3748,8 @@ node {
 node {
   name: "add"
   op: "Add"
-  input: "conv2d_5/convolution"
-  input: "conv2d_2/convolution"
+  input: "conv2d_5/Conv2D"
+  input: "conv2d_2/Conv2D"
   attr {
     key: "T"
     value {
@@ -4365,19 +4266,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_4/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -4660,31 +4582,7 @@ node {
   }
 }
 node {
-  name: "conv2d_6/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_6/convolution/dilation_rate"
+  name: "conv2d_6/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -4708,7 +4606,7 @@ node {
   }
 }
 node {
-  name: "conv2d_6/convolution"
+  name: "conv2d_6/Conv2D"
   op: "Conv2D"
   input: "Relu_3"
   input: "conv2d_5/kernel/read"
@@ -4721,7 +4619,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -5243,7 +5141,7 @@ node {
 node {
   name: "batch_normalization_5/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_6/convolution"
+  input: "conv2d_6/Conv2D"
   input: "batch_normalization_4/gamma/read"
   input: "batch_normalization_4/beta/read"
   input: "batch_normalization_4/moving_mean/read"
@@ -5257,19 +5155,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_5/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -5552,31 +5471,7 @@ node {
   }
 }
 node {
-  name: "conv2d_7/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000@\000\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_7/convolution/dilation_rate"
+  name: "conv2d_7/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -5600,7 +5495,7 @@ node {
   }
 }
 node {
-  name: "conv2d_7/convolution"
+  name: "conv2d_7/Conv2D"
   op: "Conv2D"
   input: "Relu_4"
   input: "conv2d_6/kernel/read"
@@ -5613,7 +5508,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -6135,7 +6030,7 @@ node {
 node {
   name: "batch_normalization_6/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_7/convolution"
+  input: "conv2d_7/Conv2D"
   input: "batch_normalization_5/gamma/read"
   input: "batch_normalization_5/beta/read"
   input: "batch_normalization_5/moving_mean/read"
@@ -6149,19 +6044,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_6/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -6444,31 +6360,7 @@ node {
   }
 }
 node {
-  name: "conv2d_8/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000@\000\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_8/convolution/dilation_rate"
+  name: "conv2d_8/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -6492,7 +6384,7 @@ node {
   }
 }
 node {
-  name: "conv2d_8/convolution"
+  name: "conv2d_8/Conv2D"
   op: "Conv2D"
   input: "Relu_5"
   input: "conv2d_7/kernel/read"
@@ -6505,7 +6397,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -6535,7 +6427,7 @@ node {
 node {
   name: "add_1"
   op: "Add"
-  input: "conv2d_8/convolution"
+  input: "conv2d_8/Conv2D"
   input: "add"
   attr {
     key: "T"
@@ -7053,19 +6945,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_7/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -7348,31 +7261,7 @@ node {
   }
 }
 node {
-  name: "conv2d_9/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_9/convolution/dilation_rate"
+  name: "conv2d_9/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -7396,7 +7285,7 @@ node {
   }
 }
 node {
-  name: "conv2d_9/convolution"
+  name: "conv2d_9/Conv2D"
   op: "Conv2D"
   input: "Relu_6"
   input: "conv2d_8/kernel/read"
@@ -7409,7 +7298,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -7931,7 +7820,7 @@ node {
 node {
   name: "batch_normalization_8/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_9/convolution"
+  input: "conv2d_9/Conv2D"
   input: "batch_normalization_7/gamma/read"
   input: "batch_normalization_7/beta/read"
   input: "batch_normalization_7/moving_mean/read"
@@ -7945,19 +7834,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_8/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -8240,31 +8150,7 @@ node {
   }
 }
 node {
-  name: "conv2d_10/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000@\000\000\000@\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_10/convolution/dilation_rate"
+  name: "conv2d_10/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -8288,7 +8174,7 @@ node {
   }
 }
 node {
-  name: "conv2d_10/convolution"
+  name: "conv2d_10/Conv2D"
   op: "Conv2D"
   input: "Relu_7"
   input: "conv2d_9/kernel/read"
@@ -8301,7 +8187,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -8823,7 +8709,7 @@ node {
 node {
   name: "batch_normalization_9/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_10/convolution"
+  input: "conv2d_10/Conv2D"
   input: "batch_normalization_8/gamma/read"
   input: "batch_normalization_8/beta/read"
   input: "batch_normalization_8/moving_mean/read"
@@ -8837,19 +8723,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_9/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -9132,31 +9039,7 @@ node {
   }
 }
 node {
-  name: "conv2d_11/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000@\000\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_11/convolution/dilation_rate"
+  name: "conv2d_11/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -9180,7 +9063,7 @@ node {
   }
 }
 node {
-  name: "conv2d_11/convolution"
+  name: "conv2d_11/Conv2D"
   op: "Conv2D"
   input: "Relu_8"
   input: "conv2d_10/kernel/read"
@@ -9193,7 +9076,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -9223,7 +9106,7 @@ node {
 node {
   name: "add_2"
   op: "Add"
-  input: "conv2d_11/convolution"
+  input: "conv2d_11/Conv2D"
   input: "add_1"
   attr {
     key: "T"
@@ -9752,19 +9635,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_10/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -10092,31 +9996,7 @@ node {
   }
 }
 node {
-  name: "conv2d_12/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_12/convolution/dilation_rate"
+  name: "conv2d_12/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -10140,7 +10020,7 @@ node {
   }
 }
 node {
-  name: "conv2d_12/convolution"
+  name: "conv2d_12/Conv2D"
   op: "Conv2D"
   input: "Pad_1"
   input: "conv2d_11/kernel/read"
@@ -10153,7 +10033,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -10167,9 +10047,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -10448,31 +10328,7 @@ node {
   }
 }
 node {
-  name: "conv2d_13/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_13/convolution/dilation_rate"
+  name: "conv2d_13/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -10496,7 +10352,7 @@ node {
   }
 }
 node {
-  name: "conv2d_13/convolution"
+  name: "conv2d_13/Conv2D"
   op: "Conv2D"
   input: "Relu_9"
   input: "conv2d_12/kernel/read"
@@ -10509,7 +10365,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -11031,7 +10887,7 @@ node {
 node {
   name: "batch_normalization_11/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_13/convolution"
+  input: "conv2d_13/Conv2D"
   input: "batch_normalization_10/gamma/read"
   input: "batch_normalization_10/beta/read"
   input: "batch_normalization_10/moving_mean/read"
@@ -11045,19 +10901,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_11/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -11094,7 +10971,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000"
+        tensor_content: "\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000"
       }
     }
   }
@@ -11385,31 +11262,7 @@ node {
   }
 }
 node {
-  name: "conv2d_14/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\200\000\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_14/convolution/dilation_rate"
+  name: "conv2d_14/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -11433,7 +11286,7 @@ node {
   }
 }
 node {
-  name: "conv2d_14/convolution"
+  name: "conv2d_14/Conv2D"
   op: "Conv2D"
   input: "Pad_2"
   input: "conv2d_13/kernel/read"
@@ -11446,7 +11299,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -11460,9 +11313,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -11968,7 +11821,7 @@ node {
 node {
   name: "batch_normalization_12/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_14/convolution"
+  input: "conv2d_14/Conv2D"
   input: "batch_normalization_11/gamma/read"
   input: "batch_normalization_11/beta/read"
   input: "batch_normalization_11/moving_mean/read"
@@ -11982,19 +11835,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_12/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -12277,31 +12151,7 @@ node {
   }
 }
 node {
-  name: "conv2d_15/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\200\000\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_15/convolution/dilation_rate"
+  name: "conv2d_15/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -12325,7 +12175,7 @@ node {
   }
 }
 node {
-  name: "conv2d_15/convolution"
+  name: "conv2d_15/Conv2D"
   op: "Conv2D"
   input: "Relu_11"
   input: "conv2d_14/kernel/read"
@@ -12338,7 +12188,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -12368,8 +12218,8 @@ node {
 node {
   name: "add_3"
   op: "Add"
-  input: "conv2d_15/convolution"
-  input: "conv2d_12/convolution"
+  input: "conv2d_15/Conv2D"
+  input: "conv2d_12/Conv2D"
   attr {
     key: "T"
     value {
@@ -12886,19 +12736,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_13/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -13181,31 +13052,7 @@ node {
   }
 }
 node {
-  name: "conv2d_16/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_16/convolution/dilation_rate"
+  name: "conv2d_16/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -13229,7 +13076,7 @@ node {
   }
 }
 node {
-  name: "conv2d_16/convolution"
+  name: "conv2d_16/Conv2D"
   op: "Conv2D"
   input: "Relu_12"
   input: "conv2d_15/kernel/read"
@@ -13242,7 +13089,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -13764,7 +13611,7 @@ node {
 node {
   name: "batch_normalization_14/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_16/convolution"
+  input: "conv2d_16/Conv2D"
   input: "batch_normalization_13/gamma/read"
   input: "batch_normalization_13/beta/read"
   input: "batch_normalization_13/moving_mean/read"
@@ -13778,19 +13625,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_14/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -14073,31 +13941,7 @@ node {
   }
 }
 node {
-  name: "conv2d_17/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\200\000\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_17/convolution/dilation_rate"
+  name: "conv2d_17/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -14121,7 +13965,7 @@ node {
   }
 }
 node {
-  name: "conv2d_17/convolution"
+  name: "conv2d_17/Conv2D"
   op: "Conv2D"
   input: "Relu_13"
   input: "conv2d_16/kernel/read"
@@ -14134,7 +13978,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -14656,7 +14500,7 @@ node {
 node {
   name: "batch_normalization_15/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_17/convolution"
+  input: "conv2d_17/Conv2D"
   input: "batch_normalization_14/gamma/read"
   input: "batch_normalization_14/beta/read"
   input: "batch_normalization_14/moving_mean/read"
@@ -14670,19 +14514,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_15/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -14965,31 +14830,7 @@ node {
   }
 }
 node {
-  name: "conv2d_18/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\200\000\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_18/convolution/dilation_rate"
+  name: "conv2d_18/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -15013,7 +14854,7 @@ node {
   }
 }
 node {
-  name: "conv2d_18/convolution"
+  name: "conv2d_18/Conv2D"
   op: "Conv2D"
   input: "Relu_14"
   input: "conv2d_17/kernel/read"
@@ -15026,7 +14867,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -15056,7 +14897,7 @@ node {
 node {
   name: "add_4"
   op: "Add"
-  input: "conv2d_18/convolution"
+  input: "conv2d_18/Conv2D"
   input: "add_3"
   attr {
     key: "T"
@@ -15574,19 +15415,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_16/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -15869,31 +15731,7 @@ node {
   }
 }
 node {
-  name: "conv2d_19/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_19/convolution/dilation_rate"
+  name: "conv2d_19/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -15917,7 +15755,7 @@ node {
   }
 }
 node {
-  name: "conv2d_19/convolution"
+  name: "conv2d_19/Conv2D"
   op: "Conv2D"
   input: "Relu_15"
   input: "conv2d_18/kernel/read"
@@ -15930,7 +15768,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -16452,7 +16290,7 @@ node {
 node {
   name: "batch_normalization_17/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_19/convolution"
+  input: "conv2d_19/Conv2D"
   input: "batch_normalization_16/gamma/read"
   input: "batch_normalization_16/beta/read"
   input: "batch_normalization_16/moving_mean/read"
@@ -16466,19 +16304,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_17/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -16761,31 +16620,7 @@ node {
   }
 }
 node {
-  name: "conv2d_20/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\200\000\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_20/convolution/dilation_rate"
+  name: "conv2d_20/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -16809,7 +16644,7 @@ node {
   }
 }
 node {
-  name: "conv2d_20/convolution"
+  name: "conv2d_20/Conv2D"
   op: "Conv2D"
   input: "Relu_16"
   input: "conv2d_19/kernel/read"
@@ -16822,7 +16657,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -17344,7 +17179,7 @@ node {
 node {
   name: "batch_normalization_18/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_20/convolution"
+  input: "conv2d_20/Conv2D"
   input: "batch_normalization_17/gamma/read"
   input: "batch_normalization_17/beta/read"
   input: "batch_normalization_17/moving_mean/read"
@@ -17358,19 +17193,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_18/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -17653,31 +17509,7 @@ node {
   }
 }
 node {
-  name: "conv2d_21/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\200\000\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_21/convolution/dilation_rate"
+  name: "conv2d_21/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -17701,7 +17533,7 @@ node {
   }
 }
 node {
-  name: "conv2d_21/convolution"
+  name: "conv2d_21/Conv2D"
   op: "Conv2D"
   input: "Relu_17"
   input: "conv2d_20/kernel/read"
@@ -17714,7 +17546,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -17744,7 +17576,7 @@ node {
 node {
   name: "add_5"
   op: "Add"
-  input: "conv2d_21/convolution"
+  input: "conv2d_21/Conv2D"
   input: "add_4"
   attr {
     key: "T"
@@ -18262,19 +18094,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_19/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -18557,31 +18410,7 @@ node {
   }
 }
 node {
-  name: "conv2d_22/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_22/convolution/dilation_rate"
+  name: "conv2d_22/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -18605,7 +18434,7 @@ node {
   }
 }
 node {
-  name: "conv2d_22/convolution"
+  name: "conv2d_22/Conv2D"
   op: "Conv2D"
   input: "Relu_18"
   input: "conv2d_21/kernel/read"
@@ -18618,7 +18447,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -19140,7 +18969,7 @@ node {
 node {
   name: "batch_normalization_20/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_22/convolution"
+  input: "conv2d_22/Conv2D"
   input: "batch_normalization_19/gamma/read"
   input: "batch_normalization_19/beta/read"
   input: "batch_normalization_19/moving_mean/read"
@@ -19154,19 +18983,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_20/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -19449,31 +19299,7 @@ node {
   }
 }
 node {
-  name: "conv2d_23/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\200\000\000\000\200\000\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_23/convolution/dilation_rate"
+  name: "conv2d_23/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -19497,7 +19323,7 @@ node {
   }
 }
 node {
-  name: "conv2d_23/convolution"
+  name: "conv2d_23/Conv2D"
   op: "Conv2D"
   input: "Relu_19"
   input: "conv2d_22/kernel/read"
@@ -19510,7 +19336,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -20032,7 +19858,7 @@ node {
 node {
   name: "batch_normalization_21/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_23/convolution"
+  input: "conv2d_23/Conv2D"
   input: "batch_normalization_20/gamma/read"
   input: "batch_normalization_20/beta/read"
   input: "batch_normalization_20/moving_mean/read"
@@ -20046,19 +19872,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_21/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -20341,31 +20188,7 @@ node {
   }
 }
 node {
-  name: "conv2d_24/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\200\000\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_24/convolution/dilation_rate"
+  name: "conv2d_24/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -20389,7 +20212,7 @@ node {
   }
 }
 node {
-  name: "conv2d_24/convolution"
+  name: "conv2d_24/Conv2D"
   op: "Conv2D"
   input: "Relu_20"
   input: "conv2d_23/kernel/read"
@@ -20402,7 +20225,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -20432,7 +20255,7 @@ node {
 node {
   name: "add_6"
   op: "Add"
-  input: "conv2d_24/convolution"
+  input: "conv2d_24/Conv2D"
   input: "add_5"
   attr {
     key: "T"
@@ -20961,19 +20784,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_22/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -21301,31 +21145,7 @@ node {
   }
 }
 node {
-  name: "conv2d_25/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_25/convolution/dilation_rate"
+  name: "conv2d_25/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -21349,7 +21169,7 @@ node {
   }
 }
 node {
-  name: "conv2d_25/convolution"
+  name: "conv2d_25/Conv2D"
   op: "Conv2D"
   input: "Pad_3"
   input: "conv2d_24/kernel/read"
@@ -21362,7 +21182,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -21376,9 +21196,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -21657,31 +21477,7 @@ node {
   }
 }
 node {
-  name: "conv2d_26/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_26/convolution/dilation_rate"
+  name: "conv2d_26/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -21705,7 +21501,7 @@ node {
   }
 }
 node {
-  name: "conv2d_26/convolution"
+  name: "conv2d_26/Conv2D"
   op: "Conv2D"
   input: "Relu_21"
   input: "conv2d_25/kernel/read"
@@ -21718,7 +21514,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -22240,7 +22036,7 @@ node {
 node {
   name: "batch_normalization_23/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_26/convolution"
+  input: "conv2d_26/Conv2D"
   input: "batch_normalization_22/gamma/read"
   input: "batch_normalization_22/beta/read"
   input: "batch_normalization_22/moving_mean/read"
@@ -22254,19 +22050,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_23/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -22303,7 +22120,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000"
+        tensor_content: "\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000"
       }
     }
   }
@@ -22594,31 +22411,7 @@ node {
   }
 }
 node {
-  name: "conv2d_27/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_27/convolution/dilation_rate"
+  name: "conv2d_27/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -22642,7 +22435,7 @@ node {
   }
 }
 node {
-  name: "conv2d_27/convolution"
+  name: "conv2d_27/Conv2D"
   op: "Conv2D"
   input: "Pad_4"
   input: "conv2d_26/kernel/read"
@@ -22655,7 +22448,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -22669,9 +22462,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -23177,7 +22970,7 @@ node {
 node {
   name: "batch_normalization_24/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_27/convolution"
+  input: "conv2d_27/Conv2D"
   input: "batch_normalization_23/gamma/read"
   input: "batch_normalization_23/beta/read"
   input: "batch_normalization_23/moving_mean/read"
@@ -23191,19 +22984,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_24/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -23486,31 +23300,7 @@ node {
   }
 }
 node {
-  name: "conv2d_28/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_28/convolution/dilation_rate"
+  name: "conv2d_28/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -23534,7 +23324,7 @@ node {
   }
 }
 node {
-  name: "conv2d_28/convolution"
+  name: "conv2d_28/Conv2D"
   op: "Conv2D"
   input: "Relu_23"
   input: "conv2d_27/kernel/read"
@@ -23547,7 +23337,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -23577,8 +23367,8 @@ node {
 node {
   name: "add_7"
   op: "Add"
-  input: "conv2d_28/convolution"
-  input: "conv2d_25/convolution"
+  input: "conv2d_28/Conv2D"
+  input: "conv2d_25/Conv2D"
   attr {
     key: "T"
     value {
@@ -24095,19 +23885,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_25/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -24390,31 +24201,7 @@ node {
   }
 }
 node {
-  name: "conv2d_29/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_29/convolution/dilation_rate"
+  name: "conv2d_29/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -24438,7 +24225,7 @@ node {
   }
 }
 node {
-  name: "conv2d_29/convolution"
+  name: "conv2d_29/Conv2D"
   op: "Conv2D"
   input: "Relu_24"
   input: "conv2d_28/kernel/read"
@@ -24451,7 +24238,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -24973,7 +24760,7 @@ node {
 node {
   name: "batch_normalization_26/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_29/convolution"
+  input: "conv2d_29/Conv2D"
   input: "batch_normalization_25/gamma/read"
   input: "batch_normalization_25/beta/read"
   input: "batch_normalization_25/moving_mean/read"
@@ -24987,19 +24774,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_26/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -25282,31 +25090,7 @@ node {
   }
 }
 node {
-  name: "conv2d_30/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_30/convolution/dilation_rate"
+  name: "conv2d_30/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -25330,7 +25114,7 @@ node {
   }
 }
 node {
-  name: "conv2d_30/convolution"
+  name: "conv2d_30/Conv2D"
   op: "Conv2D"
   input: "Relu_25"
   input: "conv2d_29/kernel/read"
@@ -25343,7 +25127,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -25865,7 +25649,7 @@ node {
 node {
   name: "batch_normalization_27/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_30/convolution"
+  input: "conv2d_30/Conv2D"
   input: "batch_normalization_26/gamma/read"
   input: "batch_normalization_26/beta/read"
   input: "batch_normalization_26/moving_mean/read"
@@ -25879,19 +25663,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_27/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -26174,31 +25979,7 @@ node {
   }
 }
 node {
-  name: "conv2d_31/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_31/convolution/dilation_rate"
+  name: "conv2d_31/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -26222,7 +26003,7 @@ node {
   }
 }
 node {
-  name: "conv2d_31/convolution"
+  name: "conv2d_31/Conv2D"
   op: "Conv2D"
   input: "Relu_26"
   input: "conv2d_30/kernel/read"
@@ -26235,7 +26016,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -26265,7 +26046,7 @@ node {
 node {
   name: "add_8"
   op: "Add"
-  input: "conv2d_31/convolution"
+  input: "conv2d_31/Conv2D"
   input: "add_7"
   attr {
     key: "T"
@@ -26783,19 +26564,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_28/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -27078,31 +26880,7 @@ node {
   }
 }
 node {
-  name: "conv2d_32/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_32/convolution/dilation_rate"
+  name: "conv2d_32/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -27126,7 +26904,7 @@ node {
   }
 }
 node {
-  name: "conv2d_32/convolution"
+  name: "conv2d_32/Conv2D"
   op: "Conv2D"
   input: "Relu_27"
   input: "conv2d_31/kernel/read"
@@ -27139,7 +26917,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -27661,7 +27439,7 @@ node {
 node {
   name: "batch_normalization_29/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_32/convolution"
+  input: "conv2d_32/Conv2D"
   input: "batch_normalization_28/gamma/read"
   input: "batch_normalization_28/beta/read"
   input: "batch_normalization_28/moving_mean/read"
@@ -27675,19 +27453,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_29/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -27970,31 +27769,7 @@ node {
   }
 }
 node {
-  name: "conv2d_33/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_33/convolution/dilation_rate"
+  name: "conv2d_33/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -28018,7 +27793,7 @@ node {
   }
 }
 node {
-  name: "conv2d_33/convolution"
+  name: "conv2d_33/Conv2D"
   op: "Conv2D"
   input: "Relu_28"
   input: "conv2d_32/kernel/read"
@@ -28031,7 +27806,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -28553,7 +28328,7 @@ node {
 node {
   name: "batch_normalization_30/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_33/convolution"
+  input: "conv2d_33/Conv2D"
   input: "batch_normalization_29/gamma/read"
   input: "batch_normalization_29/beta/read"
   input: "batch_normalization_29/moving_mean/read"
@@ -28567,19 +28342,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_30/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -28862,31 +28658,7 @@ node {
   }
 }
 node {
-  name: "conv2d_34/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_34/convolution/dilation_rate"
+  name: "conv2d_34/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -28910,7 +28682,7 @@ node {
   }
 }
 node {
-  name: "conv2d_34/convolution"
+  name: "conv2d_34/Conv2D"
   op: "Conv2D"
   input: "Relu_29"
   input: "conv2d_33/kernel/read"
@@ -28923,7 +28695,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -28953,7 +28725,7 @@ node {
 node {
   name: "add_9"
   op: "Add"
-  input: "conv2d_34/convolution"
+  input: "conv2d_34/Conv2D"
   input: "add_8"
   attr {
     key: "T"
@@ -29471,19 +29243,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_31/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -29766,31 +29559,7 @@ node {
   }
 }
 node {
-  name: "conv2d_35/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_35/convolution/dilation_rate"
+  name: "conv2d_35/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -29814,7 +29583,7 @@ node {
   }
 }
 node {
-  name: "conv2d_35/convolution"
+  name: "conv2d_35/Conv2D"
   op: "Conv2D"
   input: "Relu_30"
   input: "conv2d_34/kernel/read"
@@ -29827,7 +29596,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -30349,7 +30118,7 @@ node {
 node {
   name: "batch_normalization_32/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_35/convolution"
+  input: "conv2d_35/Conv2D"
   input: "batch_normalization_31/gamma/read"
   input: "batch_normalization_31/beta/read"
   input: "batch_normalization_31/moving_mean/read"
@@ -30363,19 +30132,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_32/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -30658,31 +30448,7 @@ node {
   }
 }
 node {
-  name: "conv2d_36/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_36/convolution/dilation_rate"
+  name: "conv2d_36/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -30706,7 +30472,7 @@ node {
   }
 }
 node {
-  name: "conv2d_36/convolution"
+  name: "conv2d_36/Conv2D"
   op: "Conv2D"
   input: "Relu_31"
   input: "conv2d_35/kernel/read"
@@ -30719,7 +30485,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -31241,7 +31007,7 @@ node {
 node {
   name: "batch_normalization_33/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_36/convolution"
+  input: "conv2d_36/Conv2D"
   input: "batch_normalization_32/gamma/read"
   input: "batch_normalization_32/beta/read"
   input: "batch_normalization_32/moving_mean/read"
@@ -31255,19 +31021,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_33/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -31550,31 +31337,7 @@ node {
   }
 }
 node {
-  name: "conv2d_37/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_37/convolution/dilation_rate"
+  name: "conv2d_37/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -31598,7 +31361,7 @@ node {
   }
 }
 node {
-  name: "conv2d_37/convolution"
+  name: "conv2d_37/Conv2D"
   op: "Conv2D"
   input: "Relu_32"
   input: "conv2d_36/kernel/read"
@@ -31611,7 +31374,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -31641,7 +31404,7 @@ node {
 node {
   name: "add_10"
   op: "Add"
-  input: "conv2d_37/convolution"
+  input: "conv2d_37/Conv2D"
   input: "add_9"
   attr {
     key: "T"
@@ -32159,19 +31922,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_34/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -32454,31 +32238,7 @@ node {
   }
 }
 node {
-  name: "conv2d_38/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_38/convolution/dilation_rate"
+  name: "conv2d_38/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -32502,7 +32262,7 @@ node {
   }
 }
 node {
-  name: "conv2d_38/convolution"
+  name: "conv2d_38/Conv2D"
   op: "Conv2D"
   input: "Relu_33"
   input: "conv2d_37/kernel/read"
@@ -32515,7 +32275,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -33037,7 +32797,7 @@ node {
 node {
   name: "batch_normalization_35/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_38/convolution"
+  input: "conv2d_38/Conv2D"
   input: "batch_normalization_34/gamma/read"
   input: "batch_normalization_34/beta/read"
   input: "batch_normalization_34/moving_mean/read"
@@ -33051,19 +32811,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_35/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -33346,31 +33127,7 @@ node {
   }
 }
 node {
-  name: "conv2d_39/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_39/convolution/dilation_rate"
+  name: "conv2d_39/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -33394,7 +33151,7 @@ node {
   }
 }
 node {
-  name: "conv2d_39/convolution"
+  name: "conv2d_39/Conv2D"
   op: "Conv2D"
   input: "Relu_34"
   input: "conv2d_38/kernel/read"
@@ -33407,7 +33164,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -33929,7 +33686,7 @@ node {
 node {
   name: "batch_normalization_36/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_39/convolution"
+  input: "conv2d_39/Conv2D"
   input: "batch_normalization_35/gamma/read"
   input: "batch_normalization_35/beta/read"
   input: "batch_normalization_35/moving_mean/read"
@@ -33943,19 +33700,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_36/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -34238,31 +34016,7 @@ node {
   }
 }
 node {
-  name: "conv2d_40/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_40/convolution/dilation_rate"
+  name: "conv2d_40/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -34286,7 +34040,7 @@ node {
   }
 }
 node {
-  name: "conv2d_40/convolution"
+  name: "conv2d_40/Conv2D"
   op: "Conv2D"
   input: "Relu_35"
   input: "conv2d_39/kernel/read"
@@ -34299,7 +34053,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -34329,7 +34083,7 @@ node {
 node {
   name: "add_11"
   op: "Add"
-  input: "conv2d_40/convolution"
+  input: "conv2d_40/Conv2D"
   input: "add_10"
   attr {
     key: "T"
@@ -34847,19 +34601,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_37/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -35142,31 +34917,7 @@ node {
   }
 }
 node {
-  name: "conv2d_41/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_41/convolution/dilation_rate"
+  name: "conv2d_41/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -35190,7 +34941,7 @@ node {
   }
 }
 node {
-  name: "conv2d_41/convolution"
+  name: "conv2d_41/Conv2D"
   op: "Conv2D"
   input: "Relu_36"
   input: "conv2d_40/kernel/read"
@@ -35203,7 +34954,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -35725,7 +35476,7 @@ node {
 node {
   name: "batch_normalization_38/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_41/convolution"
+  input: "conv2d_41/Conv2D"
   input: "batch_normalization_37/gamma/read"
   input: "batch_normalization_37/beta/read"
   input: "batch_normalization_37/moving_mean/read"
@@ -35739,19 +35490,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_38/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -36034,31 +35806,7 @@ node {
   }
 }
 node {
-  name: "conv2d_42/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\001\000\000\000\001\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_42/convolution/dilation_rate"
+  name: "conv2d_42/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -36082,7 +35830,7 @@ node {
   }
 }
 node {
-  name: "conv2d_42/convolution"
+  name: "conv2d_42/Conv2D"
   op: "Conv2D"
   input: "Relu_37"
   input: "conv2d_41/kernel/read"
@@ -36095,7 +35843,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -36617,7 +36365,7 @@ node {
 node {
   name: "batch_normalization_39/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_42/convolution"
+  input: "conv2d_42/Conv2D"
   input: "batch_normalization_38/gamma/read"
   input: "batch_normalization_38/beta/read"
   input: "batch_normalization_38/moving_mean/read"
@@ -36631,19 +36379,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_39/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -36926,31 +36695,7 @@ node {
   }
 }
 node {
-  name: "conv2d_43/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\001\000\000\000\004\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_43/convolution/dilation_rate"
+  name: "conv2d_43/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -36974,7 +36719,7 @@ node {
   }
 }
 node {
-  name: "conv2d_43/convolution"
+  name: "conv2d_43/Conv2D"
   op: "Conv2D"
   input: "Relu_38"
   input: "conv2d_42/kernel/read"
@@ -36987,7 +36732,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -37017,7 +36762,7 @@ node {
 node {
   name: "add_12"
   op: "Add"
-  input: "conv2d_43/convolution"
+  input: "conv2d_43/Conv2D"
   input: "add_11"
   attr {
     key: "T"
@@ -37546,19 +37291,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_40/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -37886,31 +37652,7 @@ node {
   }
 }
 node {
-  name: "conv2d_44/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\010\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_44/convolution/dilation_rate"
+  name: "conv2d_44/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -37934,7 +37676,7 @@ node {
   }
 }
 node {
-  name: "conv2d_44/convolution"
+  name: "conv2d_44/Conv2D"
   op: "Conv2D"
   input: "Pad_5"
   input: "conv2d_43/kernel/read"
@@ -37947,7 +37689,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -37961,9 +37703,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -38242,31 +37984,7 @@ node {
   }
 }
 node {
-  name: "conv2d_45/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\004\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_45/convolution/dilation_rate"
+  name: "conv2d_45/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -38290,7 +38008,7 @@ node {
   }
 }
 node {
-  name: "conv2d_45/convolution"
+  name: "conv2d_45/Conv2D"
   op: "Conv2D"
   input: "Relu_39"
   input: "conv2d_44/kernel/read"
@@ -38303,7 +38021,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -38825,7 +38543,7 @@ node {
 node {
   name: "batch_normalization_41/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_45/convolution"
+  input: "conv2d_45/Conv2D"
   input: "batch_normalization_40/gamma/read"
   input: "batch_normalization_40/beta/read"
   input: "batch_normalization_40/moving_mean/read"
@@ -38839,19 +38557,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_41/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -38888,7 +38627,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000"
+        tensor_content: "\000\000\000\000\000\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\001\000\000\000\000\000\000\000\000\000\000\000"
       }
     }
   }
@@ -39179,31 +38918,7 @@ node {
   }
 }
 node {
-  name: "conv2d_46/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\002\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_46/convolution/dilation_rate"
+  name: "conv2d_46/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -39227,7 +38942,7 @@ node {
   }
 }
 node {
-  name: "conv2d_46/convolution"
+  name: "conv2d_46/Conv2D"
   op: "Conv2D"
   input: "Pad_6"
   input: "conv2d_45/kernel/read"
@@ -39240,7 +38955,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -39254,9 +38969,9 @@ node {
     value {
       list {
         i: 1
+        i: 2
+        i: 2
         i: 1
-        i: 2
-        i: 2
       }
     }
   }
@@ -39762,7 +39477,7 @@ node {
 node {
   name: "batch_normalization_42/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_46/convolution"
+  input: "conv2d_46/Conv2D"
   input: "batch_normalization_41/gamma/read"
   input: "batch_normalization_41/beta/read"
   input: "batch_normalization_41/moving_mean/read"
@@ -39776,19 +39491,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_42/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -40071,31 +39807,7 @@ node {
   }
 }
 node {
-  name: "conv2d_47/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\000\010\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_47/convolution/dilation_rate"
+  name: "conv2d_47/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -40119,7 +39831,7 @@ node {
   }
 }
 node {
-  name: "conv2d_47/convolution"
+  name: "conv2d_47/Conv2D"
   op: "Conv2D"
   input: "Relu_41"
   input: "conv2d_46/kernel/read"
@@ -40132,7 +39844,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -40162,8 +39874,8 @@ node {
 node {
   name: "add_13"
   op: "Add"
-  input: "conv2d_47/convolution"
-  input: "conv2d_44/convolution"
+  input: "conv2d_47/Conv2D"
+  input: "conv2d_44/Conv2D"
   attr {
     key: "T"
     value {
@@ -40680,19 +40392,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_43/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -40975,31 +40708,7 @@ node {
   }
 }
 node {
-  name: "conv2d_48/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\010\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_48/convolution/dilation_rate"
+  name: "conv2d_48/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -41023,7 +40732,7 @@ node {
   }
 }
 node {
-  name: "conv2d_48/convolution"
+  name: "conv2d_48/Conv2D"
   op: "Conv2D"
   input: "Relu_42"
   input: "conv2d_47/kernel/read"
@@ -41036,7 +40745,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -41558,7 +41267,7 @@ node {
 node {
   name: "batch_normalization_44/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_48/convolution"
+  input: "conv2d_48/Conv2D"
   input: "batch_normalization_43/gamma/read"
   input: "batch_normalization_43/beta/read"
   input: "batch_normalization_43/moving_mean/read"
@@ -41572,19 +41281,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_44/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -41867,31 +41597,7 @@ node {
   }
 }
 node {
-  name: "conv2d_49/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\002\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_49/convolution/dilation_rate"
+  name: "conv2d_49/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -41915,7 +41621,7 @@ node {
   }
 }
 node {
-  name: "conv2d_49/convolution"
+  name: "conv2d_49/Conv2D"
   op: "Conv2D"
   input: "Relu_43"
   input: "conv2d_48/kernel/read"
@@ -41928,7 +41634,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -42450,7 +42156,7 @@ node {
 node {
   name: "batch_normalization_45/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_49/convolution"
+  input: "conv2d_49/Conv2D"
   input: "batch_normalization_44/gamma/read"
   input: "batch_normalization_44/beta/read"
   input: "batch_normalization_44/moving_mean/read"
@@ -42464,19 +42170,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_45/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -42759,31 +42486,7 @@ node {
   }
 }
 node {
-  name: "conv2d_50/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\000\010\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_50/convolution/dilation_rate"
+  name: "conv2d_50/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -42807,7 +42510,7 @@ node {
   }
 }
 node {
-  name: "conv2d_50/convolution"
+  name: "conv2d_50/Conv2D"
   op: "Conv2D"
   input: "Relu_44"
   input: "conv2d_49/kernel/read"
@@ -42820,7 +42523,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -42850,7 +42553,7 @@ node {
 node {
   name: "add_14"
   op: "Add"
-  input: "conv2d_50/convolution"
+  input: "conv2d_50/Conv2D"
   input: "add_13"
   attr {
     key: "T"
@@ -43368,19 +43071,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_46/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -43663,31 +43387,7 @@ node {
   }
 }
 node {
-  name: "conv2d_51/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\010\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_51/convolution/dilation_rate"
+  name: "conv2d_51/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -43711,7 +43411,7 @@ node {
   }
 }
 node {
-  name: "conv2d_51/convolution"
+  name: "conv2d_51/Conv2D"
   op: "Conv2D"
   input: "Relu_45"
   input: "conv2d_50/kernel/read"
@@ -43724,7 +43424,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -44246,7 +43946,7 @@ node {
 node {
   name: "batch_normalization_47/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_51/convolution"
+  input: "conv2d_51/Conv2D"
   input: "batch_normalization_46/gamma/read"
   input: "batch_normalization_46/beta/read"
   input: "batch_normalization_46/moving_mean/read"
@@ -44260,19 +43960,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_47/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -44555,31 +44276,7 @@ node {
   }
 }
 node {
-  name: "conv2d_52/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\003\000\000\000\003\000\000\000\000\002\000\000\000\002\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_52/convolution/dilation_rate"
+  name: "conv2d_52/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -44603,7 +44300,7 @@ node {
   }
 }
 node {
-  name: "conv2d_52/convolution"
+  name: "conv2d_52/Conv2D"
   op: "Conv2D"
   input: "Relu_46"
   input: "conv2d_51/kernel/read"
@@ -44616,7 +44313,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -45138,7 +44835,7 @@ node {
 node {
   name: "batch_normalization_48/FusedBatchNorm"
   op: "FusedBatchNorm"
-  input: "conv2d_52/convolution"
+  input: "conv2d_52/Conv2D"
   input: "batch_normalization_47/gamma/read"
   input: "batch_normalization_47/beta/read"
   input: "batch_normalization_47/moving_mean/read"
@@ -45152,19 +44849,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_48/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -45447,31 +45165,7 @@ node {
   }
 }
 node {
-  name: "conv2d_53/convolution/Shape"
-  op: "Const"
-  attr {
-    key: "dtype"
-    value {
-      type: DT_INT32
-    }
-  }
-  attr {
-    key: "value"
-    value {
-      tensor {
-        dtype: DT_INT32
-        tensor_shape {
-          dim {
-            size: 4
-          }
-        }
-        tensor_content: "\001\000\000\000\001\000\000\000\000\002\000\000\000\010\000\000"
-      }
-    }
-  }
-}
-node {
-  name: "conv2d_53/convolution/dilation_rate"
+  name: "conv2d_53/dilation_rate"
   op: "Const"
   attr {
     key: "dtype"
@@ -45495,7 +45189,7 @@ node {
   }
 }
 node {
-  name: "conv2d_53/convolution"
+  name: "conv2d_53/Conv2D"
   op: "Conv2D"
   input: "Relu_47"
   input: "conv2d_52/kernel/read"
@@ -45508,7 +45202,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -45538,7 +45232,7 @@ node {
 node {
   name: "add_15"
   op: "Add"
-  input: "conv2d_53/convolution"
+  input: "conv2d_53/Conv2D"
   input: "add_14"
   attr {
     key: "T"
@@ -46067,19 +45761,40 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
     key: "epsilon"
     value {
-      f: 1.0009999641624745e-05
+      f: 1.001e-05
     }
   }
   attr {
     key: "is_training"
     value {
       b: false
+    }
+  }
+}
+node {
+  name: "batch_normalization_49/Const"
+  op: "Const"
+  attr {
+    key: "dtype"
+    value {
+      type: DT_FLOAT
+    }
+  }
+  attr {
+    key: "value"
+    value {
+      tensor {
+        dtype: DT_FLOAT
+        tensor_shape {
+        }
+        float_val: 0.003000000026077032
+      }
     }
   }
 }
@@ -46107,7 +45822,7 @@ node {
   attr {
     key: "data_format"
     value {
-      s: "NCHW"
+      s: "NHWC"
     }
   }
   attr {
@@ -46115,9 +45830,9 @@ node {
     value {
       list {
         i: 1
+        i: 7
+        i: 7
         i: 1
-        i: 7
-        i: 7
       }
     }
   }
@@ -46169,7 +45884,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\010\000\000\000\377\377\377\377"
+        tensor_content: "\001\000\000\000\377\377\377\377"
       }
     }
   }
@@ -46689,7 +46404,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\010\000\000\000\351\003\000\000"
+        tensor_content: "\001\000\000\000\351\003\000\000"
       }
     }
   }
@@ -46734,7 +46449,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\010\000\000\000\351\003\000\000"
+        tensor_content: "\001\000\000\000\351\003\000\000"
       }
     }
   }
@@ -46966,7 +46681,7 @@ node {
             size: 2
           }
         }
-        tensor_content: "\010\000\000\000\351\003\000\000"
+        tensor_content: "\001\000\000\000\351\003\000\000"
       }
     }
   }
@@ -47370,7 +47085,7 @@ node {
             size: 1
           }
         }
-        int_val: 8
+        int_val: 1
       }
     }
   }
@@ -47674,7 +47389,7 @@ node {
             size: 1
           }
         }
-        int_val: 8
+        int_val: 1
       }
     }
   }
@@ -47727,7 +47442,7 @@ node {
             size: 1
           }
         }
-        int_val: 8
+        int_val: 1
       }
     }
   }

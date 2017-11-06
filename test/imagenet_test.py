@@ -17,7 +17,9 @@ import os, sys
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 
 # folder with memory_saving_gradients
-os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
+module_path=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(module_path+'/..')
+#os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
 
 import pytest
 import math
@@ -33,7 +35,8 @@ import memory_saving_gradients
 import memory_util
 import resnet_model   
 
-pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
+pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
+                                reason="needs gpu")
 
 # resnet parameters
 #HEIGHT = 32

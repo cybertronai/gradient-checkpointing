@@ -206,8 +206,6 @@ def test_cifar_resnet_unmodifed():
 def test_imagenet_resnet_grads():
   tf.reset_default_graph()
   tf.set_random_seed(1)
-  ctx = tf.device("/cpu:0")
-  ctx.__enter__()
   loss = _create_imagenet_resnet_loss()
   sess = _create_session()
   sess.run(tf.global_variables_initializer())
