@@ -263,7 +263,8 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # xs are already handled as remember nodes, so no need to include them
     xs_intersect_remember = set(xs).intersection(set(remember))
     if xs_intersect_remember:
-        assert False, "Some input nodes are also remember nodes: %s"%(format_ops(xs_intersect_remember),)
+        debug_print("Warning, some input nodes are also remember nodes: %s",
+                    xs_intersect_remember)
     ys_intersect_remember = set(ys).intersection(set(remember))
     debug_print("ys: %s, remember: %s, intersect: %s", ys, remember,
                 ys_intersect_remember)

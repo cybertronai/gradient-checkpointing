@@ -13,9 +13,13 @@ Compute time: 365.91 ms
 Memory used: 1110.45 MB 
 """
 
-import os
+import os, sys
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 
+# folder with memory_saving_gradients
+os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
+
+import pytest
 import math
 import numpy as np
 import os
@@ -24,11 +28,12 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 
-assert os.getcwd().endswith("/test"), "must run from 'test' directory"
-sys.path.extend([".."])   # folder with memory_saving_gradients
 import memory_saving_gradients
 
+import memory_util
 import resnet_model   
+
+pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
 
 # resnet parameters
 #HEIGHT = 32
@@ -41,11 +46,8 @@ _WEIGHT_DECAY = 2e-4
 BATCH_SIZE=32
 RESNET_SIZE=18 #  200 # 18, 34 , 50 , 101, 152, 200
 RESNET_SIZE=34 #  200 # 18, 34 , 50 , 101, 152, 200
+USE_TINY = False
 
-# following sizes don't work
-# RESNET_SIZE=50 # unable to find #  200 # 18, 34 , 50 , 101, 152, 200
-
-  
 HEIGHT=224
 WIDTH=224
 
@@ -55,21 +57,62 @@ _MOMENTUM = 0.9
 DEPTH = 3
 NUM_CLASSES = 1001
 
+
+GLOBAL_PROFILE = True
+DUMP_TIMELINES = False
+run_metadata = True
+def sessrun(*args, **kwargs):
+  global sess, run_metadata
+  
+  if not GLOBAL_PROFILE:
+    return sess.run(*args, **kwargs)
+  
+  run_metadata = tf.RunMetadata()
+
+  kwargs['options'] = tf.RunOptions(trace_level=tf.RunOptions.FULL_TRACE)
+  kwargs['run_metadata'] = run_metadata
+  result = sess.run(*args, **kwargs)
+  first_entry = args[0]
+  if isinstance(first_entry, list):
+    if len(first_entry) == 0 and len(args) == 1:
+      return None
+    first_entry = first_entry[0]
+
+  if DUMP_TIMELINES:
+    name = first_entry.name
+    name = name.replace('/', '-')
+
+    tl = timeline.Timeline(run_metadata.step_stats)
+    ctf = tl.generate_chrome_trace_format()
+    with open('timelines/%s.json'%(name,), 'w') as f:
+      f.write(ctf)
+    with open('timelines/%s.pbtxt'%(name,), 'w') as f:
+      f.write(str(run_metadata))
+
+  return result
+
+
 # debug parameters
 DUMP_GRAPHDEF = True
 
 def create_session():
+  global sess
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
   config = tf.ConfigProto(operation_timeout_in_ms=150000, graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
-  return tf.Session(config=config)
+  sess = tf.Session(config=config)
+  return sess
 
 def create_train_op_and_loss():
   """Creates loss tensor for resnet model."""
   images = tf.random_uniform((BATCH_SIZE, HEIGHT, WIDTH, DEPTH))
   labels = tf.random_uniform((BATCH_SIZE, NUM_CLASSES))
-  network = resnet_model.resnet_v2(resnet_size=RESNET_SIZE,
-                                   num_classes=NUM_CLASSES)
-  
+  if USE_TINY:
+    network = resnet_model.tiny_resnet_v2(resnet_size=RESNET_SIZE, num_classes=NUM_CLASSES)
+  else:
+    network = resnet_model.resnet_v2(resnet_size=RESNET_SIZE,
+                                     num_classes=NUM_CLASSES)
+
+    
   inputs = tf.reshape(images, [BATCH_SIZE, HEIGHT, WIDTH, DEPTH])
   logits = network(inputs,False)
   cross_entropy = tf.losses.softmax_cross_entropy(logits=logits,
@@ -114,16 +157,16 @@ def gradient_memory_test():
     tf.add_to_collection("remember", op.outputs[0])
 
   sess = create_session()
-  sess.run(tf.global_variables_initializer())
+  sessrun(tf.global_variables_initializer())
   start_time = time.perf_counter()
-  sess.run(train_op)
+  sessrun(train_op)
   start_time = time.perf_counter()
-  sess.run(train_op)
-  loss0 = sess.run(loss)
+  sessrun(train_op)
   print("Compute time: %.2f ms" %(1000*(time.perf_counter()-start_time)))
 
-  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-  mem_use = sess.run(mem_op)/1e6
+#  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
+#  mem_use = sess.run(mem_op)/1e6
+  mem_use = memory_util.peak_memory2(None, run_metadata)/1e6
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   assert total_time < 100
@@ -131,13 +174,14 @@ def gradient_memory_test():
 
 
 if __name__=='__main__':
-  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
+#  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
   old_gradients = tf.gradients
 
   if len(sys.argv)>1:
     mode = sys.argv[1]
 
-  # automatic checkpoint selection
+  # automatic checkpoint selection TODO: find why it doesn't work with 0
+  memory_saving_gradients.MIN_CHECKPOINT_NODE_SIZE = 1024
   def gradients_auto(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
                                              remember='memory', **kwargs)

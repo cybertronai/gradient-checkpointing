@@ -11,9 +11,9 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
-# TODO: factor these out
-assert os.getcwd().endswith("/test"), "must run from 'test' directory"
-sys.path.insert(0, "..")   # folder with memory_saving_gradients
+
+# folder with memory_saving_gradients
+os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
 
 from pixel_cnn_pp import nn
 from pixel_cnn_pp.model import model_spec

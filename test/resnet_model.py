@@ -36,13 +36,15 @@ import tensorflow as tf
 
 _BATCH_NORM_DECAY = 0.997
 _BATCH_NORM_EPSILON = 1e-5
+_DISABLE_BATCH_NORM=False
 
 
 def batch_norm_relu(inputs, is_training, data_format):
   """Performs a batch normalization followed by a ReLU."""
   # We set fused=True for a significant performance boost.
   # See https://www.tensorflow.org/performance/performance_guide#common_fused_ops
-  inputs = tf.layers.batch_normalization(
+  if not _DISABLE_BATCH_NORM:
+    inputs = tf.layers.batch_normalization(
       inputs=inputs, axis=1 if data_format == 'channels_first' else 3,
       momentum=_BATCH_NORM_DECAY, epsilon=_BATCH_NORM_EPSILON, center=True,
       scale=True, training=is_training, fused=True)
@@ -77,20 +79,25 @@ def fixed_padding(inputs, kernel_size, data_format):
   return padded_inputs
 
 
+conv2d_counter = 0
 def conv2d_fixed_padding(inputs, filters, kernel_size, strides, data_format):
   """Strided 2-D convolution with explicit padding.
 
   The padding is consistent and is based only on `kernel_size`, not on the
   dimensions of `inputs` (as opposed to using `tf.layers.conv2d` alone).
   """
+  global conv2d_counter
   if strides > 1:
     inputs = fixed_padding(inputs, kernel_size, data_format)
 
-  return tf.layers.conv2d(
+  result = tf.layers.conv2d(
       inputs=inputs, filters=filters, kernel_size=kernel_size, strides=strides,
       padding=('SAME' if strides == 1 else 'VALID'), use_bias=False,
       kernel_initializer=tf.variance_scaling_initializer(),
-      data_format=data_format)
+      data_format=data_format, name="conv2d_%d"%(conv2d_counter,))
+  conv2d_counter+=1
+  return result
+
 
 
 def building_block(inputs, filters, is_training, projection_shortcut, strides,

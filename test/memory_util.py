@@ -244,7 +244,9 @@ def memory_timeline(log):
         result.append((i, alloc_names, alloc_bytes, alloc_type))
     return result
 
-def peak_memory2(log, run_metadata=None, use_gpu=False):
+def peak_memory2(log, run_metadata=None, use_gpu=None):
+  if use_gpu is None:
+    use_gpu = tf.test.is_gpu_available()
   if use_gpu:
     return memory_util.peak_from_metadata(run_metadata)['gpu']
   else:

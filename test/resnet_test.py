@@ -2,15 +2,22 @@
 
 Expected result
 
+Calling memsaving gradients with memory
+12 remember tensors used
+Memory used: 236.52 MB 
+
 Calling memsaving gradients with  collection
 Memory used: 700.98 MB
 Running without checkpoints
 Memory used: 1236.68 MB
 """
 
-import os
+import os, sys
+sys.path.append(os.path.dirname(sys.argv[0])+'/..')
+
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
-os.environ['CUDA_VISIBLE_DEVICES']=''
+
+import pytest
 
 import math
 import numpy as np
@@ -21,13 +28,14 @@ import tensorflow.contrib.graph_editor as ge
 import time
 from tensorflow.core.protobuf import rewriter_config_pb2
 
-assert os.getcwd().endswith("/test"), "must run from 'test' directory"
-sys.path.extend([".."])   # folder with memory_saving_gradients
 import memory_saving_gradients
 import memory_util
 
 import resnet_model   
 
+pytestmark = pytest.mark.skipif(tf.test.is_gpu_available(), reason="needs gpu")
+
+resnet_model._DISABLE_BATCH_NORM=False
 
 # add_2:0, add_7:0, add_12:0, add_17:0, add_22:0, add_27:0, add_32:0, add_37:0, add_42:0, add_47:0, add_52:0, add_57:0, 
 USE_TINY = False
@@ -44,7 +52,7 @@ else:
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
-RESNET_SIZE=122
+RESNET_SIZE=122   # 122 has the savings with memory
 
 # debug parameters
 DUMP_GRAPHDEF = False
@@ -53,6 +61,7 @@ def create_session():
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
   config = tf.ConfigProto(operation_timeout_in_ms=150000, graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
   config.graph_options.rewrite_options.constant_folding = rewriter_config_pb2.RewriterConfig.OFF
+  config.graph_options.place_pruned_graph = True
   return tf.Session(config=config)
 
 def create_loss():
@@ -156,14 +165,29 @@ def main():
 
   # TODO: find why this doesn't work with this set to 0
   memory_saving_gradients.MIN_CHECKPOINT_NODE_SIZE = 100
-  
+
+  # current problems with Tarjan approach
+  # problem 1: none of the block_layer nodes are included in list of
+  #   articulation points/cut vertices
+  # problem 2: some cut vertices leave xs/ys in same component, need to
+  #  filter out vertices that don't separate input->output flows
+  # problem 3: breaks with batch norm remember nodes (multiple outputs)
+  # def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
+  #   return memory_saving_gradients.gradients(ys, xs, grad_ys,
+  #                                            remember='tarjan', **kwargs)
+  # tf.__dict__["gradients"] = gradients_tarjan
+  # print("Running with tarjan")
+  # assert(gradient_memory_test() < 720)
+  # return
+
   # automatic checkpoint selection
-  def gradients_auto(ys, xs, grad_ys=None, **kwargs):
+  def gradients_memory(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
                                              remember='memory', **kwargs)
-  tf.__dict__["gradients"] = gradients_auto
-  print("Running with automatically selected checkpoints")
-  assert(gradient_memory_test() < 720)
+  tf.__dict__["gradients"] = gradients_memory
+  print("Running with memory")
+  assert(gradient_memory_test() < 250)
+  gradient_memory_test()
   
   # replace tf.gradients with custom version
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
