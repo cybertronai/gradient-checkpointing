@@ -651,29 +651,27 @@ if __name__ == '__main__':
   # disable GPUs for consistent results between gpu/non-gpu machines
   os.environ['CUDA_VISIBLE_DEVICES']='' 
 
-  if False:
-    # manual rewriting tests
-    test_chain()
-    test_chain_rewrite(linearize=True)
-    test_chain_rewrite_save_first()
-    test_chain_rewrite_save_last()
-    test_chain_rewrite_save_one_before_last()
-    test_dual_chain()
-    test_dual_chain_rewrite()
-    test_minimal_resnet()
-    test_minimal_resnet(linearize=True)
-    test_resnet_rewrite()
-    test_resnet_rewrite(linearize=True)
-    test_long_resnet()
+  # manual rewriting tests
+  test_chain()
+  test_chain_rewrite(linearize=True)
+  test_chain_rewrite_save_first()
+  test_chain_rewrite_save_last()
+  test_chain_rewrite_save_one_before_last()
+  test_dual_chain()
+  test_dual_chain_rewrite()
+  test_minimal_resnet()
+  test_minimal_resnet(linearize=True)
+  test_resnet_rewrite()
+  test_resnet_rewrite(linearize=True)
+  test_long_resnet()
 
-    # automatic rewriting using networkx/Tarjan's algorithm to find bottlenecks
-    test_chain_tarjan()
-    test_long_chain_tarjan()
-    test_long_chain_tarjan(linearize=True)
-    test_resnet_rewrite_tarjan()
-    test_chain_tarjan()
-    test_long_resnet_rewrite_tarjan(linearize=True)
-
+  # automatic rewriting using networkx/Tarjan's algorithm to find bottlenecks
+  test_chain_tarjan()
+  test_long_chain_tarjan()
+  test_long_chain_tarjan(linearize=True)
+  test_resnet_rewrite_tarjan()
+  test_chain_tarjan()
+  test_long_resnet_rewrite_tarjan(linearize=True)
 
   # automatic rewriting using Tim's algorithm to find bottlenecks
   test_chain_memory()
@@ -682,7 +680,7 @@ if __name__ == '__main__':
   test_long_chain_memory(linearize=True)
   test_resnet_rewrite_memory()
   test_resnet_rewrite_memory(linearize=True)
-  #test_long_resnet_rewrite_memory()
-  #test_long_resnet_rewrite_memory(linearize=True)
+  test_long_resnet_rewrite_memory()
+  test_long_resnet_rewrite_memory(linearize=True)
   
   print("%s tests succeeded"%(sys.argv[0],))
