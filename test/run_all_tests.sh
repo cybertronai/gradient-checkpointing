@@ -19,4 +19,3 @@ export PYTHONPATH="$BASEDIR/..:$PYTHONPATH"
 $BASEDIR/tf.sh $BASEDIR/memory_test.py
 $BASEDIR/tf.sh $BASEDIR/util_test.py
 $BASEDIR/tf.sh $BASEDIR/linearize_test.py  # not converted to CPU-only
-$BASEDIR/tf.sh $BASEDIR/chain_test.py  # GPU-required

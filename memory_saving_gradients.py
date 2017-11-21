@@ -121,12 +121,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
 
-#    print("ts_all", util.format_ops(ts_all))
-#    print("bwd_ops", util.format_ops(bwd_ops))
-#    print("xs", util.format_ops(xs))
-    # remove nodes that have their memory forwarded
-    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
-
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
     nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
@@ -135,6 +129,12 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     #    ts_all = set(ts_all) - set(xs)
 
 #    debug_print("Filtering tensors: %s", ts_all)
+
+    #print("ts_all", util.format_ops(ts_all))
+    #print("bwd_ops", util.format_ops(bwd_ops))
+    #print("xs", util.format_ops(xs))
+    # remove nodes that have their memory forwarded
+    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
 
     # construct list of tensors to remember from forward pass, if not given as input
     if type(remember) is not list:
@@ -167,16 +167,16 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
                     b = set(ge.get_backward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
-#                    print('backward', format_ops(b))
-#                    print('forward', format_ops(f))
+                    #print('backward', format_ops(b))
+                    #print('forward', format_ops(f))
                     # check that there are not shortcuts
                     b_inp = set([inp for op in b for inp in op.inputs]).intersection(ts_all)
                     f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
-#                    print('b_inp', format_ops(b_inp))
-#                    print('f_inp', format_ops(f_inp))
-#                    print(len(b_inp), len(f_inp), len(ts_all))
-                    if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all)-1:
- #                       print('bottleneck', t)
+                    #print('b_inp', format_ops(b_inp))
+                    #print('f_inp', format_ops(f_inp))
+                    #print(len(b_inp), len(f_inp), len(ts_all))
+                    if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all)-2:
+                        #print('bottleneck', t)
                         bottleneck_ts.append(t)  # we have a bottleneck!
 
                 # success? or try again without filtering?
