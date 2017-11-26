@@ -103,9 +103,28 @@ def to_op(tensor_or_op):
 def to_ops(ll):
   if ll is None:
     return None
-  if not is_list_or_tuple(ll):
-    ll = [ll]
-  return [to_op(t) for t in ll]
+  elif is_list_or_tuple(ll):
+    return [to_op(t) for t in ll]
+  else:
+    assert False, ("op list has unsupported type %s, must be list or "
+                   "tuple"%(ll.__class__.__name__))
+
+
+
+def print_ops(ops):
+  print(format_ops(ops))
+  
+def format_ops(ops, sort_outputs=False):
+  """Helper method for printing ops. Converts Tensor/Operation op to op.name,
+  rest to str(op)."""
+    
+  if hasattr(ops, '__iter__') and not isinstance(ops, str):
+    l = [(op.name if hasattr(op, "name") else str(op)) for op in ops]
+    if sort_outputs:
+      return sorted(l)
+    return l
+  else:
+    return ops.name if hasattr(ops, "name") else str(ops)
 
 
 def get_graph(g=None, as_hashes=False, exclude_controls=False,
@@ -129,7 +148,7 @@ def get_graph(g=None, as_hashes=False, exclude_controls=False,
   result = OrderedDict()
   if restrict_to is not None:
     restrict_to = to_ops(restrict_to)
-  
+
   for op in alphasorted(g.get_operations()):
     if restrict_to is not None and op not in restrict_to:
       continue
@@ -358,6 +377,18 @@ def _process_targets(targets):
   graph = remove_variable_ops_from_graph(graph)
   return graph, targets
 
+def get_execution_order(targets=None):
+  """Return deterministic execution order which approximately minimizes peak
+  memory usage.
+  Args:
+    targets: specifies list of computation Tensor or op targets or a single
+        target.
+
+  Returns:
+    list of Operation objects in execution order."""
+
+  return linearize(targets, modify_graph=False)
+
 def linearize(targets=None, modify_graph=True):
   """Obtain a single valid execution order which approximately minimizes
   peak memory usage.
@@ -377,7 +408,7 @@ def linearize(targets=None, modify_graph=True):
   graph, targets = _process_targets(targets)
   parent_graph = reversed_graph(graph)
 
-  toposort(copy_graph(graph))   # raises exception if there are cycles
+  toposort(copy_graph(graph))   # check for cycles (raises exception)
 
   # The algorithm works by keeping an "active" set nodes that have no
   # unscheduled children, hence are ready for execution.  At each iteration,
