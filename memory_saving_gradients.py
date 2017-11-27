@@ -121,20 +121,20 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
 
-#    print("ts_all", util.format_ops(ts_all))
-#    print("bwd_ops", util.format_ops(bwd_ops))
-#    print("xs", util.format_ops(xs))
-    # remove nodes that have their memory forwarded
-    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
-
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
     nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
     ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
+    ts_all = set(ts_all) - set(xs) - set(ys)
 #    print('ts_all', format_ops(ts_all))
-    #    ts_all = set(ts_all) - set(xs)
 
 #    debug_print("Filtering tensors: %s", ts_all)
+
+    #print("ts_all", util.format_ops(ts_all))
+    #print("bwd_ops", util.format_ops(bwd_ops))
+    #print("xs", util.format_ops(xs))
+    # remove nodes that have their memory forwarded
+    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
 
     # construct list of tensors to remember from forward pass, if not given as input
     if type(remember) is not list:
@@ -155,9 +155,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 tf_gradients(ys, xs, grad_ys, **kwargs)
 
             bwd_inputs = [t for op in bwd_ops for t in op.inputs]
+            #print(bwd_inputs)
             # list of tensors in forward graph that is in input to bwd graph
             ts_filtered = list(set(bwd_inputs).intersection(ts_all))
             debug_print("Using tensors %s", ts_filtered)
+            #print(ts_filtered)
 
             for ts in [ts_filtered, ts_all]:  # try two slightly different ways of getting bottlenecks tensors to remember
 
@@ -165,18 +167,19 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 bottleneck_ts = []
                 for t in ts:
 
-                    b = set(ge.get_backward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
+                    b = set(ge.get_backward_walk_ops(t.op, inclusive=True, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
-#                    print('backward', format_ops(b))
-#                    print('forward', format_ops(f))
+                    #print('backward', format_ops(b))
+                    #print('forward', format_ops(f))
                     # check that there are not shortcuts
                     b_inp = set([inp for op in b for inp in op.inputs]).intersection(ts_all)
                     f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
-#                    print('b_inp', format_ops(b_inp))
-#                    print('f_inp', format_ops(f_inp))
-#                    print(len(b_inp), len(f_inp), len(ts_all))
-                    if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all)-1:
- #                       print('bottleneck', t)
+                    #print(t)
+                    #print('b_inp', format_ops(b_inp))
+                    #print('f_inp', format_ops(f_inp))
+                    #print(len(b_inp), len(f_inp), len(ts_all))
+                    if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all):
+                        #print('bottleneck', t)
                         bottleneck_ts.append(t)  # we have a bottleneck!
 
                 # success? or try again without filtering?

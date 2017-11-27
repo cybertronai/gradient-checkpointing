@@ -121,7 +121,7 @@ def test_chain():
   # "loss" tensor
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_chain_rewrite(linearize=False):
   """Take chain of length 5, save 2 nodes, make sure 2 units of RAM is
@@ -146,7 +146,7 @@ def test_chain_rewrite(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 
 def test_chain_rewrite_save_last():
@@ -185,7 +185,7 @@ def test_chain_rewrite_save_one_before_last():
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
 def test_chain_rewrite_save_first():
   """Take chain of length 5, save first node."""
@@ -207,7 +207,7 @@ def test_chain_rewrite_save_first():
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
 
 
@@ -237,7 +237,7 @@ def test_dual_chain():
   # 1 unit of memory slack since parallel computation chains adds
   # scheduling variablity
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**9, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1*10**9, "Difference too large."
 
 def test_dual_chain_rewrite():
   """Runs regular chain gradient, makes sure memory usage makes sense."""
@@ -271,7 +271,7 @@ def test_dual_chain_rewrite():
   # since two independent chains, some variability in node scheduling
   # allow 1MB slack
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 4.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 4.1e6, "Difference too large."
 
 @pytest.mark.skip(reason="fails")
 def test_chain_memory(linearize=False):
@@ -300,7 +300,7 @@ def test_chain_memory(linearize=False):
                                  # "loss" tensor
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_chain_tarjan(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="tarjan"
@@ -328,7 +328,7 @@ def test_chain_tarjan(linearize=False):
   expected_peak = 5e6  # originally needed 7 units, now a3,a5 are recomputed
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1e5, "Difference too large."
+    assert (peak_memory - expected_peak) < 1e5, "Difference too large."
 
 @pytest.mark.skip(reason="fails")
 def test_long_chain_memory(linearize=False):
@@ -364,7 +364,7 @@ def test_long_chain_memory(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
 
 def test_long_chain_tarjan(linearize=False):
@@ -397,7 +397,7 @@ def test_long_chain_tarjan(linearize=False):
 
   # todo: remove "REMOVE_ASSERTS"
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1e5, "Difference too large."
+    assert (peak_memory - expected_peak) < 1e5, "Difference too large."
 
 
 def test_minimal_resnet(linearize=False):
@@ -428,7 +428,7 @@ def test_minimal_resnet(linearize=False):
 
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
 def test_resnet():
   tf.reset_default_graph()
@@ -455,7 +455,7 @@ def test_resnet():
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_resnet_rewrite(linearize=False):
   tf.reset_default_graph()
@@ -487,7 +487,7 @@ def test_resnet_rewrite(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
 
 def test_long_resnet():
   tf.reset_default_graph()
@@ -512,7 +512,7 @@ def test_long_resnet():
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1e6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
 @pytest.mark.skip(reason="fails")
 def test_long_resnet_rewrite_memory(linearize=False):
@@ -548,7 +548,7 @@ def test_long_resnet_rewrite_memory(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_long_resnet_rewrite_tarjan(linearize=False):
   tf.reset_default_graph()
@@ -583,7 +583,7 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 10000, "Difference too large."
+    assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 
 @pytest.mark.skip(reason="fails")
@@ -616,7 +616,7 @@ def test_resnet_rewrite_memory(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
 
 def test_resnet_rewrite_tarjan(linearize=False):
   tf.reset_default_graph()
@@ -644,13 +644,13 @@ def test_resnet_rewrite_tarjan(linearize=False):
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
-    assert abs(peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
+    assert (peak_memory - expected_peak) < 1.1*10**6, "Difference too large."
 
       
 if __name__ == '__main__':
   # disable GPUs for consistent results between gpu/non-gpu machines
   os.environ['CUDA_VISIBLE_DEVICES']='' 
- 
+
   # manual rewriting tests
   test_chain()
   test_chain_rewrite(linearize=True)
@@ -673,15 +673,14 @@ if __name__ == '__main__':
   test_chain_tarjan()
   test_long_resnet_rewrite_tarjan(linearize=True)
 
-
   # automatic rewriting using Tim's algorithm to find bottlenecks
-  #  test_chain_memory()
-  #  test_chain_memory(linearize=True)
-  #  test_long_chain_memory(linearize=False) 
-  #  test_long_chain_memory(linearize=True)
-  #  test_resnet_rewrite_memory()
-  #  test_resnet_rewrite_memory(linearize=True)
-  #  test_long_resnet_rewrite_memory()
-  #  test_long_resnet_rewrite_memory(linearize=True)
+  test_chain_memory()
+  test_chain_memory(linearize=True)
+  test_long_chain_memory(linearize=False)
+  test_long_chain_memory(linearize=True)
+  test_resnet_rewrite_memory()
+  test_resnet_rewrite_memory(linearize=True)
+  test_long_resnet_rewrite_memory()
+  test_long_resnet_rewrite_memory(linearize=True)
   
   print("%s tests succeeded"%(sys.argv[0],))

@@ -37,7 +37,7 @@ import resnet_model
 pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
                                 reason="needs gpu")
 
-resnet_model._DISABLE_BATCH_NORM=False
+resnet_model._DISABLE_BATCH_NORM=True
 
 # add_2:0, add_7:0, add_12:0, add_17:0, add_22:0, add_27:0, add_32:0, add_37:0, add_42:0, add_47:0, add_52:0, add_57:0, 
 USE_TINY = False
@@ -210,7 +210,7 @@ def main():
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
   assert(gradient_memory_measure() < 250)
-  
+
   # replace tf.gradients with custom version
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
@@ -223,7 +223,7 @@ def main():
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
-  
+
   print("Running without checkpoints")
   assert(gradient_memory_measure() < 1350)
   print("Test passed")
