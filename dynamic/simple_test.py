@@ -411,7 +411,7 @@ def test_rewritten_gradients():
   tf.reset_default_graph()
   gg = tf.get_default_graph()
   
-  n = 20   # chain of length 20
+  n = 20   # chain of length 20, backprop should use 3 MB instead of 20
   A = [None]*(n+1)
   A[0] = tf.fill((size,), 1.0, name="A0")
   for L in range(1, n+1):
