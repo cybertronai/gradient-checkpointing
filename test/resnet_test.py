@@ -12,6 +12,8 @@ Running without checkpoints
 Memory used: 1236.68 MB
 """
 
+# todo: add check for available GPU memory
+
 import os, sys
 module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
@@ -209,8 +211,9 @@ def main():
                                              remember='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
-  assert(gradient_memory_measure() < 250)
-
+  memuse = gradient_memory_measure()
+  assert memuse < 260, "got %.1f usage" %(memuse,)
+  
   # replace tf.gradients with custom version
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
@@ -223,7 +226,7 @@ def main():
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
-
+  
   print("Running without checkpoints")
   assert(gradient_memory_measure() < 1350)
   print("Test passed")
