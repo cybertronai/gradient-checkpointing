@@ -20,3 +20,4 @@ $BASEDIR/tf.sh $BASEDIR/memory_test.py
 $BASEDIR/tf.sh $BASEDIR/util_test.py
 $BASEDIR/tf.sh $BASEDIR/linearize_test.py  # not converted to CPU-only
 $BASEDIR/tf.sh $BASEDIR/resnet_test.py
+
