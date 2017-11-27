@@ -181,7 +181,7 @@ def test_memory_method_saves_memory():
 
   tf.__dict__["gradients"] = old_gradients
   print("Running without checkpoints")
-  assert(gradient_memory_measure() > 1000)
+  assert(gradient_memory_measure() > 600)
 
 
 

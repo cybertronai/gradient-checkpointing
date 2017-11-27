@@ -273,7 +273,6 @@ def test_dual_chain_rewrite():
   if not REMOVE_ASSERTS:
     assert (peak_memory - expected_peak) < 4.1e6, "Difference too large."
 
-@pytest.mark.skip(reason="fails")
 def test_chain_memory(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="memory" strat."""
 
@@ -330,7 +329,6 @@ def test_chain_tarjan(linearize=False):
   if not REMOVE_ASSERTS:
     assert (peak_memory - expected_peak) < 1e5, "Difference too large."
 
-@pytest.mark.skip(reason="fails")
 def test_long_chain_memory(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="memory" 
   strategy."""
@@ -514,7 +512,6 @@ def test_long_resnet():
   if not REMOVE_ASSERTS:
     assert (peak_memory - expected_peak) < 1.1e6, "Difference too large."
 
-@pytest.mark.skip(reason="fails")
 def test_long_resnet_rewrite_memory(linearize=False):
   tf.reset_default_graph()
   n = 100
@@ -586,7 +583,6 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
     assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 
-@pytest.mark.skip(reason="fails")
 def test_resnet_rewrite_memory(linearize=False):
   tf.reset_default_graph()
   n = 6   # use n>5 (see test_chain_memory)
