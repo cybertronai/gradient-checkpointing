@@ -17,6 +17,7 @@ module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
 
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # tf init messages
 
 import pytest
 
@@ -37,7 +38,7 @@ import resnet_model
 pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
                                 reason="needs gpu")
 
-resnet_model._DISABLE_BATCH_NORM=False
+resnet_model._DISABLE_BATCH_NORM=True
 
 # add_2:0, add_7:0, add_12:0, add_17:0, add_22:0, add_27:0, add_32:0, add_37:0, add_42:0, add_47:0, add_52:0, add_57:0, 
 USE_TINY = False
@@ -134,21 +135,21 @@ def gradient_memory_measure():
 
   start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
-  print("Graph construction time: %.2f sec" %(time.perf_counter()-start_time))
+  #  print("Graph construction time: %.2f sec" %(time.perf_counter()-start_time))
 
   
   start_time = time.perf_counter()
   sess = create_session()
-  print("Sess create time: %.2f sec" %(time.perf_counter()-start_time))
+  #  print("Sess create time: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(tf.global_variables_initializer())
-  print("Init time: %.2f sec" %(time.perf_counter()-start_time))
+  #  print("Init time: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(grads)
-  print("Compute time0: %.2f sec" %(time.perf_counter()-start_time))
+  #  print("Compute time0: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(grads)
-  print("Compute time: %.2f sec" %(time.perf_counter()-start_time))
+  #  print("Compute time: %.2f sec" %(time.perf_counter()-start_time))
 
   #  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
   #  mem_use = sessrun(mem_op)/1e6
