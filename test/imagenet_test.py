@@ -15,6 +15,7 @@ Memory used: 1110.45 MB
 
 import os, sys
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # suppress init messages
 
 # folder with memory_saving_gradients
 module_path=os.path.dirname(os.path.abspath(__file__))
@@ -46,9 +47,17 @@ pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
 #BATCH_SIZE=128
 _WEIGHT_DECAY = 2e-4
 
+# valid resnet sizes
+#  200 # 18, 34 , 50 , 101, 152, 200
 BATCH_SIZE=32
-RESNET_SIZE=18 #  200 # 18, 34 , 50 , 101, 152, 200
-RESNET_SIZE=34 #  200 # 18, 34 , 50 , 101, 152, 200
+
+# size, old_mbs->new_mbs
+RESNET_SIZE=50 # unable to pick bottleneck tesnsors
+RESNET_SIZE=101 # unable to pick bottleneck tesnsors
+RESNET_SIZE=152 # unable to pick bottleneck tesnsors
+RESNET_SIZE=200 # unable to pick bottleneck tesnsors
+RESNET_SIZE=34 # 1024->662
+
 USE_TINY = False
 
 HEIGHT=224
@@ -167,16 +176,13 @@ def gradient_memory_test():
   sessrun(train_op)
   print("Compute time: %.2f ms" %(1000*(time.perf_counter()-start_time)))
 
-#  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-#  mem_use = sess.run(mem_op)/1e6
   mem_use = memory_util.peak_memory2(None, run_metadata)/1e6
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   assert total_time < 100
   return mem_use
 
-
-if __name__=='__main__':
+def test_memory_automatic():
 #  assert tf.test.is_gpu_available(), "Memory tracking only works on GPU"
   old_gradients = tf.gradients
 
@@ -191,12 +197,15 @@ if __name__=='__main__':
 
   tf.__dict__["gradients"] = gradients_auto
   print("Running with automatically selected checkpoints")
-  gradient_memory_test() < 590
+  assert gradient_memory_test() < 700 # 662 on Nov 27
     
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   tf.reset_default_graph()
   print("Running without checkpoints")
-  gradient_memory_test() < 1200
+  gradient_memory_test() > 900 # 1027 on Nov 27
 
   print("Test passed")
+
+if __name__=='__main__':
+  test_memory_automatic()
