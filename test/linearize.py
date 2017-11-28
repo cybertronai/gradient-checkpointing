@@ -127,6 +127,7 @@ def format_ops(ops, sort_outputs=False):
     return ops.name if hasattr(ops, "name") else str(ops)
 
 
+# TODO: change to OrderedSet, fix tests
 def get_graph(g=None, as_names=False, as_hashes=False, as_indices=False,
               exclude_controls=False,
               restrict_to=None):
@@ -155,10 +156,10 @@ def get_graph(g=None, as_names=False, as_hashes=False, as_indices=False,
 
   def format_children(children):
     if as_names:
-      return OrderedSet([op.name for op in children])
+      return set([op.name for op in children])
     if as_hashes:
-      return OrderedSet([hash(op) for op in children])
-    return OrderedSet(children)
+      return set([hash(op) for op in children])
+    return set(children)
       
   for op in alphasorted(g.get_operations()):
     if restrict_to is not None and op not in restrict_to:
@@ -176,10 +177,10 @@ def get_graph(g=None, as_names=False, as_hashes=False, as_indices=False,
 
   # renumber nodes as sequential indices
   if as_indices:
-    nodes = OrderedSet([child for ll in result.values() for child in ll])
+    nodes = set([child for ll in result.values() for child in ll])
     nodes.update(result.keys())
     m = {node: idx+1 for idx,node in enumerate(nodes)}
-    return {m[key]:OrderedSet(m[v] for v in result[key]) for key in
+    return {m[key]:set(m[v] for v in result[key]) for key in
             result.keys()}
   
   return result
