@@ -1,0 +1,4 @@
+tf-nightly-gpu
+pytest
+networkx
+toposort

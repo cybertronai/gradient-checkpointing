@@ -66,6 +66,7 @@ def create_session():
                           graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
   config.graph_options.rewrite_options.constant_folding=rewriter_config_pb2.RewriterConfig.OFF
   config.graph_options.place_pruned_graph = True
+  #  config.log_device_placement = True
   return tf.Session(config=config)
 
 
@@ -408,8 +409,12 @@ def test_rewritten_gradients():
   everything."""
 
   global sess
+  
   tf.reset_default_graph()
   gg = tf.get_default_graph()
+  
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
   
   n = 20   # chain of length 20, backprop should use 3 MB instead of 20
   A = [None]*(n+1)
@@ -455,7 +460,7 @@ def test_rewritten_gradients():
 
   sess = create_session()
   sessrun(B[0].op)
-  peak_memory = memory_util.peak_memory2(None, run_metadata)
+  peak_memory = memory_util.peak_memory2(None, run_metadata, use_gpu=False)
   parsed_timeline = get_cpu_timeline()
   desired_peak = 3000000.0
   assert len(parsed_timeline) == 258  # change detector
