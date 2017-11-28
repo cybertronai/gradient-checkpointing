@@ -13,7 +13,8 @@ import tensorflow as tf
 import pdb
 import tensorflow.contrib.graph_editor as ge
 
-sys.path.insert(0, os.environ["HOME"]+"/git0/gradient-checkpointing/test")
+module_path=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(module_path+'/../test')
 import memory_util
 import linearize as linearize_lib
 from linearize import OrderedSet
