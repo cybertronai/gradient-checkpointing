@@ -120,6 +120,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
+    ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
 
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
