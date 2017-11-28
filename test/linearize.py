@@ -127,7 +127,8 @@ def format_ops(ops, sort_outputs=False):
     return ops.name if hasattr(ops, "name") else str(ops)
 
 
-def get_graph(g=None, as_hashes=False, exclude_controls=False,
+def get_graph(g=None, as_names=False, as_hashes=False, as_indices=False,
+              exclude_controls=False,
               restrict_to=None):
   """Creates dictionary {node: {child1, child2, ..},..} for current
   TensorFlow graph.
@@ -143,23 +144,44 @@ def get_graph(g=None, as_hashes=False, exclude_controls=False,
   if not g:
     g = tf.get_default_graph()
 
+  assert not (as_hashes and as_names)
+  assert not (as_hashes and as_indices)
+  assert not (as_names and as_indices)
   initialize_control_outputs(g=g)
 
   result = OrderedDict()
   if restrict_to is not None:
     restrict_to = to_ops(restrict_to)
 
+  def format_children(children):
+    if as_names:
+      return OrderedSet([op.name for op in children])
+    if as_hashes:
+      return OrderedSet([hash(op) for op in children])
+    return OrderedSet(children)
+      
   for op in alphasorted(g.get_operations()):
     if restrict_to is not None and op not in restrict_to:
       continue
     if as_hashes:
       key = hash(op)
+    if as_names:
+      key = op.name
     else:
       key = op
     if exclude_controls:
-      result[key] = set(children(op, restrict_to=restrict_to))
+      result[key] = format_children(children(op, restrict_to=restrict_to))
     else:
-      result[key] = set(children_with_controls(op, restrict_to=restrict_to))
+      result[key] = format_children(children_with_controls(op, restrict_to=restrict_to))
+
+  # renumber nodes as sequential indices
+  if as_indices:
+    nodes = OrderedSet([child for ll in result.values() for child in ll])
+    nodes.update(result.keys())
+    m = {node: idx+1 for idx,node in enumerate(nodes)}
+    return {m[key]:OrderedSet(m[v] for v in result[key]) for key in
+            result.keys()}
+  
   return result
 
 def prune_graph(graph, targets):
