@@ -4,6 +4,9 @@
 # 3000576 metadata
 # 3003648 metadata max
 
+import pytest
+pytestmark = pytest.mark.skip(reason="needs memory_util")
+
 import os, sys
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 module_path=os.path.dirname(os.path.abspath(__file__))
@@ -18,13 +21,9 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 import memory_saving_gradients
-import memory_util
-memory_util.vlog(1)   # vlog=2 on GPU machine will spam gpu "polling" msgs
 import util
 
 
-pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
-                                reason="needs gpu")
 
 def create_session():
   config = tf.ConfigProto(log_device_placement=False, graph_options=tf.GraphOptions(optimizer_options=tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)))
@@ -54,6 +53,9 @@ def make_chain_tanh(length=100, name_prefix="a", node_mbs=1):
 
 
 def main():
+  import memory_util
+  memory_util.vlog(1)   # vlog=2 on GPU machine will spam gpu "polling" msgs
+  
   tf.reset_default_graph()
   n = 3
 

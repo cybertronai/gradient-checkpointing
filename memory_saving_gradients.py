@@ -88,7 +88,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
         #    TODO: remember collection name to "checkpoints"
 
-    print("Calling memsaving gradients with", remember)
+    #print("Calling memsaving gradients with", remember)
     if not isinstance(ys,list):
         ys = [ys]
     if not isinstance(xs,list):
@@ -210,7 +210,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         # todo: remove grad_ys since not tested
         elif remember == 'tarjan':
             original_points = linearize_lib.sorted_articulation_points(ys)
-            #print('found articulation points', _format_ops(original_points))
             assert original_points, "No articulation points found."
             
             # restrict to tensors in fwd graph that are inputs to backprop
@@ -258,9 +257,9 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # at this point automatic selection happened and remember is list of nodes
     assert isinstance(remember, list)
 
-    print("%d remember tensors used" %(len(remember,)))
-    for remember_tensor in remember:
-        print(remember_tensor.name)
+    # print("%d remember tensors used" %(len(remember,)))
+    # for remember_tensor in remember:
+    #     print(remember_tensor.name)
 
     debug_print("Remember nodes used: %s", remember)
     # better error handling of special cases

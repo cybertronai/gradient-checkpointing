@@ -33,7 +33,7 @@ import time
 
 import memory_saving_gradients
 
-import memory_util
+import mem_util
 import resnet_model   
 
 pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
@@ -52,13 +52,15 @@ _WEIGHT_DECAY = 2e-4
 BATCH_SIZE=32
 
 # size, old_mbs->new_mbs
-RESNET_SIZE=50 # unable to pick bottleneck tesnsors
-RESNET_SIZE=101 # unable to pick bottleneck tesnsors
-RESNET_SIZE=152 # unable to pick bottleneck tesnsors
-RESNET_SIZE=200 # unable to pick bottleneck tesnsors
-#RESNET_SIZE=34 # 1024->662
+# RESNET_SIZE=34 # 1024->662
+# RESNET_SIZE=50 # 
+# RESNET_SIZE=101 # 3961->1352
+RESNET_SIZE=200   # OOM -> 1791.44 MB (1337.58 ms)
+RESNET_SIZE=152   # 5605.75 -> 1405.99, 18% increase in compute (895.86 to 1059.85)
 
-USE_TINY = False
+RESNET_SIZE=18
+
+USE_TINY = True
 
 HEIGHT=224
 WIDTH=224
@@ -154,17 +156,19 @@ def create_train_op_and_loss():
   return grads, loss
 
 
-def gradient_memory_test():
+def gradient_memory_mbs():
   """Evaluates gradient, prints peak memory."""
   start_time0 = time.perf_counter()
   start_time = start_time0
+  tf.reset_default_graph()
+  tf.set_random_seed(1)
+  
   train_op, loss = create_train_op_and_loss()
   print("Graph construction: %.2f ms" %(1000*(time.perf_counter()-start_time)))
 
-
-  # use block_layer1, block_layer2, block_layer3 as remember nodes
   g = tf.get_default_graph()
   ops = g.get_operations()
+  
   for op in ge.filter_ops_from_regex(ops, "block_layer"):
     tf.add_to_collection("remember", op.outputs[0])
 
@@ -173,10 +177,11 @@ def gradient_memory_test():
   start_time = time.perf_counter()
   sessrun(train_op)
   start_time = time.perf_counter()
-  sessrun(train_op)
+  print("loss %f"%(sess.run(loss),))
+  
   print("Compute time: %.2f ms" %(1000*(time.perf_counter()-start_time)))
 
-  mem_use = memory_util.peak_memory2(None, run_metadata)/1e6
+  mem_use = mem_util.peak_memory(run_metadata)['/gpu:0']/1e6
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
   assert total_time < 100
@@ -197,13 +202,14 @@ def test_memory_automatic():
 
   tf.__dict__["gradients"] = gradients_auto
   print("Running with automatically selected checkpoints")
-  gradient_memory_test() # < 700 # 662 on Nov 27
-    
+  peak_memory = gradient_memory_mbs()
+  print(peak_memory) # < 700 # 662 on Nov 27
+#  assert peak_memory < 2000   # 1405.99 on Nov 29
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
-  tf.reset_default_graph()
   print("Running without checkpoints")
-  gradient_memory_test() #> 900 # 1027 on Nov 27
+  peak_memory = gradient_memory_mbs()
+#  assert peak_memory > 5000 # 5605.75 on Nov 29
 
   print("Test passed")
 

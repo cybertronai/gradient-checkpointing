@@ -12,30 +12,28 @@ Running without checkpoints
 Memory used: 1236.68 MB
 """
 
-# todo: add check for available GPU memory
+# todo: add check for available GPU memory, fail early if no memory
 
 import os, sys
 module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
 
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
-os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # tf init messages
+os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # silence tf init messages
 
-import pytest
-
+from tensorflow.core.protobuf import rewriter_config_pb2
 import math
 import numpy as np
 import os
+import pytest
 import sys
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
-from tensorflow.core.protobuf import rewriter_config_pb2
 
 import memory_saving_gradients
-import memory_util
-
 import resnet_model   
+import mem_util
 
 pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
                                 reason="needs gpu")
@@ -119,8 +117,8 @@ def sessrun(*args, **kwargs):
 
   return result
 
-def gradient_memory_measure():
-  """Evaluates gradient, prints peak memory."""
+def gradient_memory_measure_mb():
+  """Evaluates gradient, prints peak memory in MBs."""
   global sess
   
   start_time0 = time.perf_counter()
@@ -137,25 +135,17 @@ def gradient_memory_measure():
 
   start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
-  #  print("Graph construction time: %.2f sec" %(time.perf_counter()-start_time))
-
   
   start_time = time.perf_counter()
   sess = create_session()
-  #  print("Sess create time: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(tf.global_variables_initializer())
-  #  print("Init time: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(grads)
-  #  print("Compute time0: %.2f sec" %(time.perf_counter()-start_time))
   start_time = time.perf_counter()
   sessrun(grads)
-  #  print("Compute time: %.2f sec" %(time.perf_counter()-start_time))
 
-  #  mem_op = tf.contrib.memory_stats.MaxBytesInUse()
-  #  mem_use = sessrun(mem_op)/1e6
-  mem_use = memory_util.peak_memory2(None, run_metadata)/1e6
+  mem_use = mem_util.peak_memory(run_metadata)['/gpu:0']/1e6
   
   print("Memory used: %.2f MB "%(mem_use))
   total_time = time.perf_counter()-start_time0
@@ -176,12 +166,13 @@ def test_memory_method_saves_memory():
                                              remember='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
-  assert(gradient_memory_measure() < 300)
-  gradient_memory_measure()
+  peak_mem = gradient_memory_measure_mb()
+  assert(2 < peak_mem)
+  assert(peak_mem < 300)
 
   tf.__dict__["gradients"] = old_gradients
   print("Running without checkpoints")
-  assert(gradient_memory_measure() > 600)
+  assert(gradient_memory_measure_mb() > 600)
 
 
 

@@ -1,7 +1,6 @@
 """Utilities for generating/enforcing memory-efficient execution order on a
 TensorFlow graph.
 """
-
 import pdb
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
@@ -518,7 +517,5 @@ def sorted_articulation_points(targets):
   nx_graph = nx.Graph(graph)
   points = _sort(nx.articulation_points(nx_graph),
                  total_order=sorted_list, dedup=True)
-  from pprint import pprint as pp
-  pp(util.format_ops(points))
   return points
 

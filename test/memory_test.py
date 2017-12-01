@@ -7,7 +7,6 @@ REMOVE_ASSERTS = False
 
 
 import os, sys, time
-os.environ['CUDA_VISIBLE_DEVICES']='' # disable GPU
 
 # folder with memory_saving_gradients
 module_path=os.path.dirname(os.path.abspath(__file__))
@@ -29,7 +28,7 @@ from util import debug_print
 import util
 
 import linearize as linearize_lib
-import memory_util
+import mem_util
 
 
 run_metadata = None
@@ -46,6 +45,7 @@ def sessrun(*args, **kwargs):
   result = sess.run(*args, **kwargs)
   return result
 
+
 sess = None
 def create_session():
   global sess
@@ -60,31 +60,18 @@ def create_session():
   sess = tf.InteractiveSession(config=config) # todo: replace with regular sess
   return sess
 
-# def setup_env():
-#   """Sets up test enviornment."""
-
-#   if not os.path.exists('../memory_util.py'):
-#     assert False, "no memory_util"
-#   return
-
-#   # # download memory_util if needed
-#   # memory_util_url = "https://raw.githubusercontent.com/yaroslavvb/memory_util/master/memory_util.py"
-#   # if os.path.exists('memory_util.py'):
-#   #   size = len(open('memory_util.py').read())
-#   # else:
-#   #   size = 0
     
-#   # if size != 13636:
-#   #   print("Size changed or 0, redownloading memory_util.py")
-#   #   import urllib.request
-#   #   response = urllib.request.urlopen(memory_util_url)
-#   #   open("memory_util.py", "wb").write(response.read())
+def cpu_peak():
+  return mem_util.peak_memory(run_metadata)['/cpu:0']
 
-    
+
 def make_chain_minmax(length, node_mbs=1):
   """Creates chain of nodes alternating minimum/maximum."""
     
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = node_mbs * 250000
   dtype = tf.float32
   upper = gen_random_ops._random_uniform((n,), dtype, name="u")
@@ -106,6 +93,9 @@ def test_chain():
   """Runs regular chain gradient, makes sure memory usage makes sense."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
 
   n = 5
   nodes = make_chain_tanh(n)
@@ -119,12 +109,13 @@ def test_chain():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   expected_peak = (n)*10**6
-
+  
+  assert peak_memory > 2e6
+  
   # "loss" tensor
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
@@ -135,6 +126,9 @@ def test_chain_rewrite(linearize=False):
   saved."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh(n)
@@ -144,12 +138,11 @@ def test_chain_rewrite(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
   if linearize:
     linearize_lib.linearize()
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
@@ -161,6 +154,9 @@ def test_chain_rewrite_save_last():
   and edge case that should raise exception by rewriter."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh(n)
@@ -176,6 +172,9 @@ def test_chain_rewrite_save_one_before_last():
   """Take chain of length 5, save first node."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh_constant(n)
@@ -185,10 +184,9 @@ def test_chain_rewrite_save_one_before_last():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
@@ -198,6 +196,9 @@ def test_chain_rewrite_save_first():
   """Take chain of length 5, save first node."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh_constant(n)
@@ -207,10 +208,9 @@ def test_chain_rewrite_save_first():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   util.report_memory(peak_memory, expected_peak)
 
   if not REMOVE_ASSERTS:
@@ -223,6 +223,9 @@ def test_dual_chain():
 
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
   nodes1 = make_chain_tanh_constant(n, "a")
   nodes2 = make_chain_tanh_constant(n, "b")
@@ -234,10 +237,9 @@ def test_dual_chain():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun([grad[0].op, grad[1].op])
+  sessrun([grad[0].op, grad[1].op])
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   expected_peak = (2*n+1)*10**6
   util.report_memory(peak_memory, expected_peak)
 
@@ -251,6 +253,9 @@ def test_dual_chain_rewrite():
 
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 5
   nodes1 = make_chain_tanh_constant(n, "a")
   nodes2 = make_chain_tanh_constant(n, "b")
@@ -264,10 +269,9 @@ def test_dual_chain_rewrite():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun([grad[0].op, grad[1].op])
+  sessrun([grad[0].op, grad[1].op])
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   # normal usage comes from 2*n nodes + default ygrad node + 2 gradient nodes
   # here we save two 2 units of memory by dropping 2 activations (a1/b1) temporarily
   # also, this moves "peak memory" scenario lower down the chain
@@ -284,6 +288,9 @@ def test_chain_memory(linearize=False):
   """Like test_chain, but use automatic rewriting with remember="memory" strat."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6  # for n=5, only choice of a2 saves memory, and alg picks a3
          # hence use n>5 to avoid this edge condition
 
@@ -295,13 +302,12 @@ def test_chain_memory(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
   if linearize:
     linearize_lib.linearize()
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   expected_peak = (n+1-1)*10**6  # 1 for each node + 1 for generated - 1 saved
                                  # "loss" tensor
   util.report_memory(peak_memory, expected_peak)
@@ -313,6 +319,9 @@ def test_chain_tarjan(linearize=False):
   strategy."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6  # for n=5, only choice of a2 saves memory, and alg picks a3
          # hence use n>5 to avoid this edge condition
 
@@ -324,13 +333,12 @@ def test_chain_tarjan(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
   if linearize:
     linearize_lib.linearize()
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   expected_peak = 5e6  # originally needed 7 units, now a3,a5 are recomputed
   util.report_memory(peak_memory, expected_peak)
   if not REMOVE_ASSERTS:
@@ -341,6 +349,9 @@ def test_long_chain_memory(linearize=False):
   strategy."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 100
 
   nodes = make_chain_tanh_constant(n)
@@ -354,14 +365,12 @@ def test_long_chain_memory(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
   if linearize:
     added = linearize_lib.linearize()
-    print("Added deps: ", added)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   # 20 mem used with following tensors picked automatically as bottlenecks
   # ['a10:0', 'a19:0', 'a28:0', 'a37:0', 'a46:0', 'a55:0', 'a64:0', 'a73:0',
   # 'a82:0', 'a91:0']
@@ -377,6 +386,9 @@ def test_long_chain_tarjan(linearize=False):
   strategy."""
 
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 100
 
   nodes = make_chain_tanh_constant(n)
@@ -387,14 +399,12 @@ def test_long_chain_tarjan(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
   if linearize:
     added = linearize_lib.linearize()
-    print("Added deps: ", added)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   # points picked
   #  a09:0,19:0,a29:0,a39:0,a49:0,a58:0,a68:0,a78:0,a88:0,a97:0
   expected_peak = 18e6
@@ -407,6 +417,9 @@ def test_long_chain_tarjan(linearize=False):
 
 def test_minimal_resnet(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 3
 
   nodes = make_resnet(n)
@@ -419,14 +432,12 @@ def test_minimal_resnet(linearize=False):
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
   if linearize:
     added = linearize_lib.linearize()
-    print("Added deps: ", added)
 
-  peak_memory = memory_util.peak_memory2(stderr, run_metadata)
+  peak_memory = cpu_peak()
   # 1 for activation of each tanh node + 1 for initial backprop node
   # + 1 temporary memory for computing the adds
   expected_peak = (n+1)*10**6 
@@ -437,6 +448,9 @@ def test_minimal_resnet(linearize=False):
 
 def test_resnet():
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6
 
   nodes = make_resnet(n)
@@ -450,10 +464,9 @@ def test_resnet():
   sessrun(tf.global_variables_initializer())
 
   linearize_lib.linearize(grad)
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr, run_metadata)
+  peak_memory = cpu_peak()
   # 1 for activation of each tanh node + 1 for initial backprop node
   # + 1 temporary memory for computing the adds
   expected_peak = (n)*10**6 
@@ -464,6 +477,9 @@ def test_resnet():
 
 def test_resnet_rewrite(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6
 
   nodes = make_resnet(n)
@@ -474,17 +490,15 @@ def test_resnet_rewrite(linearize=False):
   grad = memory_saving_gradients.gradients([a], [a0], remember=[nodes[2]])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
-    print("Added deps: ", added)
 
 
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   # 1 for activation of each tanh node + 1 for initial backprop node
   # + 1 temporary memory for computing the adds,
   # -1 for discarding, then recomputing a1_tanh
@@ -496,6 +510,9 @@ def test_resnet_rewrite(linearize=False):
 
 def test_long_resnet():
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 100
   nodes = make_resnet(n)
   a0 = nodes[0]
@@ -507,10 +524,9 @@ def test_long_resnet():
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr, run_metadata)
+  peak_memory = cpu_peak()
   # 1 for activation of each tanh node + 1 for initial backprop node
   # + 1 temporary memory for computing the adds
   expected_peak = (n+1)*10**6 
@@ -521,6 +537,9 @@ def test_long_resnet():
 
 def test_long_resnet_rewrite_memory(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 100
   nodes = make_resnet(n)
   a0 = nodes[0]
@@ -529,21 +548,17 @@ def test_long_resnet_rewrite_memory(linearize=False):
   start_time = time.time()
   with tf.control_dependencies([a]):
       grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
-  print("Elapsed time, %.1f ms" %( (time.time()-start_time)*1000))
 
   start_time = time.time()
   if linearize:
     added = linearize_lib.linearize(grad.op)
-    print("Added deps: ", added)
 
-  print("Elapsed time, %.1f ms" %( (time.time()-start_time)*1000))
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr, run_metadata)
+  peak_memory = cpu_peak()
   # 20 mem used with following tensors picked automatically
   # ['a10_add:0', 'a19_add:0', 'a28_add:0', 'a37_add:0', 'a46_add:0',
   # 'a55_add:0', 'a64_add:0', 'a73_add:0', 'a82_add:0', 'a91_add:0']
@@ -556,6 +571,9 @@ def test_long_resnet_rewrite_memory(linearize=False):
 
 def test_long_resnet_rewrite_tarjan(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 100
   nodes = make_resnet(n)
   a0 = nodes[0]
@@ -564,21 +582,17 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
   start_time = time.time()
   with tf.control_dependencies([a]):
     grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
-  print("Elapsed time, %.1f ms" %( (time.time()-start_time)*1000))
 
   start_time = time.time()
   if linearize:
     added = linearize_lib.linearize(grad.op)
-    print("Added deps: ", added)
 
-  print("Elapsed time, %.1f ms" %( (time.time()-start_time)*1000))
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr, run_metadata)
+  peak_memory = cpu_peak()
   # 20 mem used with following tensors picked automatically
   # ['a10_add:0', 'a19_add:0', 'a28_add:0', 'a37_add:0', 'a46_add:0',
   # 'a55_add:0', 'a64_add:0', 'a73_add:0', 'a82_add:0', 'a91_add:0']
@@ -592,6 +606,9 @@ def test_long_resnet_rewrite_tarjan(linearize=False):
 
 def test_resnet_rewrite_memory(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6   # use n>5 (see test_chain_memory)
 
   nodes = make_resnet(n)
@@ -603,15 +620,13 @@ def test_resnet_rewrite_memory(linearize=False):
   grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
-    print("Added deps: ", added)
 
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   # 1 for activation of each tanh node + 1 for initial backprop node
   # + 1 temporary memory for computing the adds,
   # -1 for discarding, then recomputing a1_tanh
@@ -623,6 +638,9 @@ def test_resnet_rewrite_memory(linearize=False):
 
 def test_resnet_rewrite_tarjan(linearize=False):
   tf.reset_default_graph()
+  tf_dev = tf.device('/cpu:0')
+  tf_dev.__enter__()
+  
   n = 6   # use n>5 (see test_chain_memory)
 
   nodes = make_resnet(n)
@@ -634,15 +652,13 @@ def test_resnet_rewrite_tarjan(linearize=False):
   grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
-    print("Added deps: ", added)
 
   sess = create_session()
   sessrun(tf.global_variables_initializer())
 
-  with memory_util.capture_stderr() as stderr:
-    sessrun(grad.op)
+  sessrun(grad.op)
 
-  peak_memory = memory_util.peak_memory2(stderr.getvalue(), run_metadata)
+  peak_memory = cpu_peak()
   expected_peak = 4e6
   util.report_memory(peak_memory, expected_peak)
 
@@ -651,9 +667,6 @@ def test_resnet_rewrite_tarjan(linearize=False):
 
       
 if __name__ == '__main__':
-  # disable GPUs for consistent results between gpu/non-gpu machines
-  os.environ['CUDA_VISIBLE_DEVICES']='' 
-
   # manual rewriting tests
   test_chain()
   test_chain_rewrite(linearize=True)

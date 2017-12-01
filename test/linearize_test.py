@@ -1,5 +1,4 @@
 import linearize as linearize_lib
-import memory_util
 import pytest
 import util
 import unittest

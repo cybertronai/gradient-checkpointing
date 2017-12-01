@@ -2,20 +2,23 @@
 
 import contextlib
 import inspect
-import networkx as nx
 import math
+import networkx as nx
 import numpy as np
-import tensorflow as tf
-import tensorflow.contrib.graph_editor as ge
+import os
+import re
+import tempfile
 import time
 
+import tensorflow as tf
 from tensorflow.python.ops import gen_random_ops # for low overhead random
 from tensorflow.contrib import graph_editor as ge
 
 DEBUG_LOGGING = False
 
 def report_memory(peak_memory, expected_peak):
-  """Helper utility to print 2 memory stats side by side"""
+  """Helper utility to print 2 memory stats side by side, used in memory
+  tests."""
   
   parent_name = inspect.stack()[1][0].f_code.co_name
   print("%s: peak memory: %.3f MB, "
@@ -29,7 +32,6 @@ def enable_debug():
   
   global DEBUG_LOGGING
   DEBUG_LOGGING = True
-
 
 def disable_debug():
   """Turn off debug logging."""
@@ -251,6 +253,59 @@ def make_resnet_custom(length=100, name_prefix="a", node_mbs=1):
     
   return nodes
 
+
+STDOUT=1
+STDERR=2
+class capture_stderr:
+  """Utility to capture output, use as follows
+     with util.capture_stderr() as stderr:
+        sess = tf.Session()
+
+    print("Captured:", stderr.getvalue()).
+    """
+
+  def __init__(self, fd=STDERR):
+    self.fd = fd
+    self.prevfd = None
+
+  def __enter__(self):
+    t = tempfile.NamedTemporaryFile()
+    self.prevfd = os.dup(self.fd)
+    os.dup2(t.fileno(), self.fd)
+    return TemporaryFileHelper(t)
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    os.dup2(self.prevfd, self.fd)
+
+class capture_stdout:
+  """Utility to capture output, use as follows
+     with util.capture_stderr() as stderr:
+        sess = tf.Session()
+
+    print("Captured:", stderr.getvalue()).
+    """
+
+  def __init__(self, fd=STDOUT):
+    self.fd = fd
+    self.prevfd = None
+
+  def __enter__(self):
+    t = tempfile.NamedTemporaryFile()
+    self.prevfd = os.dup(self.fd)
+    os.dup2(t.fileno(), self.fd)
+    return TemporaryFileHelper(t)
+
+  def __exit__(self, exc_type, exc_value, traceback):
+    os.dup2(self.prevfd, self.fd)
+
+
+class TemporaryFileHelper:
+  """Provides a way to fetch contents of temporary file.""" 
+  def __init__(self, temporary_file):
+    self.temporary_file = temporary_file
+  def getvalue(self):
+    return open(self.temporary_file.name).read() 
+    
 
 @contextlib.contextmanager
 def capture_ops():
