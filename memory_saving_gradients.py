@@ -114,7 +114,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
-
+    
     # get the tensors, remove variables and very small tensors
     ts_all = ge.filter_ts(fwd_ops, True)
     ts_all = [t for t in ts_all if '/read' not in t.name]
@@ -124,7 +124,11 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
-    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
+    def nr_elem(t):
+      def dimcast(s): 0 if s.value is None else int(s)
+      new_shape = [dimcast(s) for s in t.shape]
+      return np.prod([s if s else 64 for s in new_shape])
+      
     ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
 #    print('ts_all', format_ops(ts_all))
