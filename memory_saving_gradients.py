@@ -140,9 +140,6 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     if type(remember) is not list:
         if remember == 'collection':
             remember = tf.get_collection('remember')
-            #            import pdb; pdb.set_trace()
-            remember = list(set(remember).intersection(ts_all))
-            #            print(remember)
             
         elif remember == 'speed':
             # remember all expensive ops to maximize running speed
@@ -253,6 +250,8 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
               
         else:
             raise Exception('%s is unsupported input for "remember"' % (remember,))
+
+    remember = list(set(remember).intersection(ts_all))
 
     # at this point automatic selection happened and remember is list of nodes
     assert isinstance(remember, list)
