@@ -88,7 +88,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     '''
         #    TODO: remember collection name to "checkpoints"
 
-    #print("Calling memsaving gradients with", remember)
+    print("Calling memsaving gradients with", remember)
     if not isinstance(ys,list):
         ys = [ys]
     if not isinstance(xs,list):
@@ -114,21 +114,16 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
-    
+
     # get the tensors, remove variables and very small tensors
     ts_all = ge.filter_ts(fwd_ops, True)
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
-    ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
 
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
-    def nr_elem(t):
-      def dimcast(s): 0 if s.value is None else int(s)
-      new_shape = [dimcast(s) for s in t.shape]
-      return np.prod([s if s else 64 for s in new_shape])
-      
+    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
     ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
 #    print('ts_all', format_ops(ts_all))
@@ -214,6 +209,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
         # todo: remove grad_ys since not tested
         elif remember == 'tarjan':
             original_points = linearize_lib.sorted_articulation_points(ys)
+            #print('found articulation points', _format_ops(original_points))
             assert original_points, "No articulation points found."
             
             # restrict to tensors in fwd graph that are inputs to backprop
@@ -261,9 +257,9 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # at this point automatic selection happened and remember is list of nodes
     assert isinstance(remember, list)
 
-    # print("%d remember tensors used" %(len(remember,)))
-    # for remember_tensor in remember:
-    #     print(remember_tensor.name)
+    print("%d remember tensors used" %(len(remember,)))
+    for remember_tensor in remember:
+        print(remember_tensor.name)
 
     debug_print("Remember nodes used: %s", remember)
     # better error handling of special cases
