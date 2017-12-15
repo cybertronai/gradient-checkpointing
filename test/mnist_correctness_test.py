@@ -30,39 +30,44 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 import mem_util
 
-parser = argparse.ArgumentParser()
+def parse_flags():
+  parser = argparse.ArgumentParser()
 
-# Basic model parameters.
-parser.add_argument(
-    '--batch_size',
-    type=int,
-    default=1,
-    help='Number of images to process in a batch')
+  # Basic model parameters.
+  parser.add_argument(
+      '--batch_size',
+      type=int,
+      default=1,
+      help='Number of images to process in a batch')
 
-parser.add_argument(
-    '--data_dir',
-    type=str,
-    default='/tmp/mnist_data',
-    help='Path to directory containing the MNIST dataset')
+  parser.add_argument(
+      '--data_dir',
+      type=str,
+      default='/tmp/mnist_data',
+      help='Path to directory containing the MNIST dataset')
 
-parser.add_argument(
-    '--model_dir',
-    type=str,
-    default='/tmp/mnist_model',
-    help='The directory where the model will be stored.')
+  parser.add_argument(
+      '--model_dir',
+      type=str,
+      default='/tmp/mnist_model',
+      help='The directory where the model will be stored.')
 
-parser.add_argument(
-    '--train_epochs', type=int, default=40, help='Number of epochs to train.')
+  parser.add_argument(
+      '--train_epochs', type=int, default=40, help='Number of epochs to train.')
 
-parser.add_argument(
-    '--data_format',
-    type=str,
-    default=None,
-    choices=['channels_first', 'channels_last'],
-    help='A flag to override the data format used in the model. channels_first '
-    'provides a performance boost on GPU but is not always compatible '
-    'with CPU. If left unspecified, the data format will be chosen '
-    'automatically based on whether TensorFlow was built for CPU or GPU.')
+  parser.add_argument(
+      '--data_format',
+      type=str,
+      default=None,
+      choices=['channels_first', 'channels_last'],
+      help='A flag to override the data format used in the model. channels_first '
+      'provides a performance boost on GPU but is not always compatible '
+      'with CPU. If left unspecified, the data format will be chosen '
+      'automatically based on whether TensorFlow was built for CPU or GPU.')
+  tf.logging.set_verbosity(tf.logging.INFO)
+
+  FLAGS, unparsed = parser.parse_known_args()
+  return FLAGS
 
 
 def train_dataset(data_dir):
@@ -202,7 +207,8 @@ def train_mnist():
   global sess
   tf.reset_default_graph()
   tf.set_random_seed(1)
-  
+
+  FLAGS = parse_flags()
   # Train the model
   def train_input_fn():
     dataset = train_dataset(FLAGS.data_dir)
@@ -256,7 +262,11 @@ def train_mnist():
   assert sess.run(loss) < 100
 
 
-def test_correctness():
+def test_correctness(capsys):
+  # enable printing during successful test run
+  pytest_decorator = capsys.disabled()
+  pytest_decorator.__enter__()
+  # restrict to cpu:0
   tf_dev = tf.device('/cpu:0')
   tf_dev.__enter__()
   
@@ -283,15 +293,13 @@ def test_correctness():
   
   train_mnist()
 
-  print("Running with regular gradient")
+  print("\nRunning with regular gradient")
   tf.__dict__["gradients"] = old_grads
   train_mnist()
 
 def main(unused_argv):
+#  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
   test_correctness()
 
 if __name__ == '__main__':
-  tf.logging.set_verbosity(tf.logging.INFO)
-  FLAGS, unparsed = parser.parse_known_args()
-  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
-
+  main([])
