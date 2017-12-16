@@ -224,11 +224,11 @@ def train_mnist():
   assert sess.run(loss) < 100
 
 
-def test_correctness(capsys=None):
-  # enable printing during successful test run under pytest
-  if capsys:
-    pytest_decorator = capsys.disabled()
-    pytest_decorator.__enter__()
+def test_correctness(capsys):
+  # enable printing during successful test run under pytest, uncomment these
+  # if capsys:
+  #   pytest_decorator = capsys.disabled()
+  #   pytest_decorator.__enter__()
 
   # Loss 0.01803, memory 399.10 MB
   # Loss 0.00002, memory 399.10 MB
@@ -256,7 +256,7 @@ def test_correctness(capsys=None):
   train_mnist()
 
 def main(unused_argv):
-  test_correctness()
+  test_correctness(None)
 
 if __name__ == '__main__':
   main([])
