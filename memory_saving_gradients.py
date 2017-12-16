@@ -7,6 +7,7 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 import math
+import os
 
 # save original gradients since tf.gradient could be monkey-patched to point to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
@@ -123,7 +124,8 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
 
 #    print(format_ops(fwd_ops))
 #    print(format_ops(bwd_ops))
-    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in t.shape])
+    def fixdims(t): return [int(e if e.value is not None else 0) for e in t]
+    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in fixdims(t.shape)])
     ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
 #    print('ts_all', format_ops(ts_all))

@@ -20,22 +20,19 @@ import memory_saving_gradients
 import mem_util
 
 TEST_DEVICE='/cpu:0'
-FLAGS_datadir='/tmp/mnist_data'
-FLAGS_modeldir='/tmp/mnist_model'
+USE_REAL_DATA = True
+FLAGS_data_dir='/tmp/mnist_data'
+FLAGS_model_dir='/tmp/mnist_model'
 FLAGS_batch_size=1
 FLAGS_data_format=None
 
+# from tensorflow.contrib.learn.python.learn.datasets.mnist import read_data_sets
 
+  
 def train_dataset(data_dir):
   """Returns a tf.data.Dataset yielding (image, label) pairs for training."""
   data = input_data.read_data_sets(data_dir, one_hot=True).train
   return tf.data.Dataset.from_tensor_slices((data.images, data.labels))
-
-
-def eval_dataset(data_dir):
-  """Returns a tf.data.Dataset yielding (image, label) pairs for evaluation."""
-  data = input_data.read_data_sets(data_dir, one_hot=True).test
-  return tf.data.Dataset.from_tensors((data.images, data.labels))
 
 
 def mnist_model(inputs, mode, data_format):
@@ -167,17 +164,11 @@ def train_mnist():
   tf.reset_default_graph()
   tf.set_random_seed(1)
   np.random.seed(1)
-  
   tf_dev = tf.device(TEST_DEVICE)
   tf_dev.__enter__()
 
   #  FLAGS = parse_flags()
   # Train the model
-  def train_input_fn():
-    dataset = train_dataset(FLAGS_data_dir)
-    dataset = dataset.batch(FLAGS_batch_size)
-    (images, labels) = dataset.make_one_shot_iterator().get_next()
-    return (images, labels)
 
 
   # replace Dataset ops with constant images because gradient rewriting
@@ -186,19 +177,28 @@ def train_mnist():
   images = tf.Variable(tf.random_uniform((FLAGS_batch_size, 28**2)))
   labels = tf.Variable(tf.concat([tf.ones((FLAGS_batch_size, 1)),
                                   tf.zeros((FLAGS_batch_size, 9))], axis=1))
-#  images, labels = train_input_fn()
+  def train_input_fn():
+    dataset = train_dataset(FLAGS_data_dir)
+    dataset = dataset.batch(FLAGS_batch_size)
+    (images, labels) = dataset.make_one_shot_iterator().get_next()
+    num_images = FLAGS_batch_size
+    return (images[:num_images], labels[:num_images])
+
+  if USE_REAL_DATA:
+    images, labels = train_input_fn()
+    images = tf.stop_gradient(images)
+    labels = tf.stop_gradient(labels)
 
   
   logits = mnist_model(images, tf.estimator.ModeKeys.TRAIN, 'channels_last')
-  cross_entropy = tf.losses.softmax_cross_entropy(logits=logits, onehot_labels=labels)
+  cross_entropy = tf.losses.softmax_cross_entropy(logits=logits,
+                                                  onehot_labels=labels)
   loss = cross_entropy
-#  optimizer = tf.train.AdamOptimizer(learning_rate=1e-3)
   optimizer = tf.train.GradientDescentOptimizer(learning_rate=1e-2)
 
   vars = tf.trainable_variables()
   grads = tf.gradients(loss, vars)
   grads_and_vars = zip(grads, vars)
-  
   train_op = optimizer.apply_gradients(grads_and_vars)
   
   sess = create_session()
