@@ -194,7 +194,7 @@ def main():
   #                                            remember='tarjan', **kwargs)
   # tf.__dict__["gradients"] = gradients_tarjan
   # print("Running with tarjan")
-  # assert(gradient_memory_measure() < 720)
+  # assert(gradient_memory_measure_mb() < 720)
   # return
 
   # automatic checkpoint selection
@@ -203,7 +203,7 @@ def main():
                                              remember='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
-  memuse = gradient_memory_measure()
+  memuse = gradient_memory_measure_mb()
   assert memuse < 260, "got %.1f usage" %(memuse,)
   
   # replace tf.gradients with custom version
@@ -212,15 +212,15 @@ def main():
                                              remember='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with manual checkpoints")
-  #  assert(gradient_memory_measure() < 730)
-  assert(gradient_memory_measure() < 1000)
+  #  assert(gradient_memory_measure_mb() < 730)
+  assert(gradient_memory_measure_mb() < 1000)
 
 
   # restore old gradients
   tf.__dict__["gradients"] = old_gradients
   
   print("Running without checkpoints")
-  assert(gradient_memory_measure() < 1350)
+  assert(gradient_memory_measure_mb() < 1350)
   print("Test passed")
 
 if __name__=='__main__':

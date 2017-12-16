@@ -1,73 +1,29 @@
-#  Copyright 2017 The TensorFlow Authors. All Rights Reserved.
-#
-#  Licensed under the Apache License, Version 2.0 (the "License");
-#  you may not use this file except in compliance with the License.
-#  You may obtain a copy of the License at
-#
-#   http://www.apache.org/licenses/LICENSE-2.0
-#
-#  Unless required by applicable law or agreed to in writing, software
-#  distributed under the License is distributed on an "AS IS" BASIS,
-#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-#  See the License for the specific language governing permissions and
-#  limitations under the License.
-"""Convolutional Neural Network Estimator for MNIST, built with tf.layers."""
+# correctness test
+# MNIST model taken from github/tensorflow/models
 
 from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
 import argparse
+import numpy as np
 import os
 import sys
-
-# folder with memory_saving_gradients
-module_path=os.path.dirname(os.path.abspath(__file__))
-sys.path.append(module_path+'/..')
 
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 
+# import memory_saving_gradients from ..
+module_path=os.path.dirname(os.path.abspath(__file__))
+sys.path.append(module_path+'/..')
+import memory_saving_gradients
 import mem_util
 
-def parse_flags():
-  parser = argparse.ArgumentParser()
-
-  # Basic model parameters.
-  parser.add_argument(
-      '--batch_size',
-      type=int,
-      default=1,
-      help='Number of images to process in a batch')
-
-  parser.add_argument(
-      '--data_dir',
-      type=str,
-      default='/tmp/mnist_data',
-      help='Path to directory containing the MNIST dataset')
-
-  parser.add_argument(
-      '--model_dir',
-      type=str,
-      default='/tmp/mnist_model',
-      help='The directory where the model will be stored.')
-
-  parser.add_argument(
-      '--train_epochs', type=int, default=40, help='Number of epochs to train.')
-
-  parser.add_argument(
-      '--data_format',
-      type=str,
-      default=None,
-      choices=['channels_first', 'channels_last'],
-      help='A flag to override the data format used in the model. channels_first '
-      'provides a performance boost on GPU but is not always compatible '
-      'with CPU. If left unspecified, the data format will be chosen '
-      'automatically based on whether TensorFlow was built for CPU or GPU.')
-  tf.logging.set_verbosity(tf.logging.INFO)
-
-  FLAGS, unparsed = parser.parse_known_args()
-  return FLAGS
+TEST_DEVICE='/cpu:0'
+FLAGS_datadir='/tmp/mnist_data'
+FLAGS_modeldir='/tmp/mnist_model'
+FLAGS_batch_size=1
+FLAGS_data_format=None
 
 
 def train_dataset(data_dir):
@@ -193,6 +149,7 @@ def sessrun(*args, **kwargs):
 
   return result
 
+
 def create_session():
   from tensorflow.core.protobuf import rewriter_config_pb2
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
@@ -205,14 +162,20 @@ def create_session():
 sess = None
 def train_mnist():
   global sess
+
+  # restrict to cpu:0
   tf.reset_default_graph()
   tf.set_random_seed(1)
+  np.random.seed(1)
+  
+  tf_dev = tf.device(TEST_DEVICE)
+  tf_dev.__enter__()
 
-  FLAGS = parse_flags()
+  #  FLAGS = parse_flags()
   # Train the model
   def train_input_fn():
-    dataset = train_dataset(FLAGS.data_dir)
-    dataset = dataset.batch(FLAGS.batch_size)
+    dataset = train_dataset(FLAGS_data_dir)
+    dataset = dataset.batch(FLAGS_batch_size)
     (images, labels) = dataset.make_one_shot_iterator().get_next()
     return (images, labels)
 
@@ -220,11 +183,10 @@ def train_mnist():
   # replace Dataset ops with constant images because gradient rewriting
   # tries to differentiate graphs containing IteratorGetNext
   # TODO: make it work with Dataset ops
-  #  images, labels = train_input_fn()
-  #  images = tf.Variable(tf.random_uniform((FLAGS.batch_size, 28**2)))
-  images = tf.Variable(tf.ones((FLAGS.batch_size, 28**2)))
-  labels = tf.Variable(tf.concat([tf.ones((FLAGS.batch_size, 1)),
-                                  tf.zeros((FLAGS.batch_size, 9))], axis=1))
+  images = tf.Variable(tf.random_uniform((FLAGS_batch_size, 28**2)))
+  labels = tf.Variable(tf.concat([tf.ones((FLAGS_batch_size, 1)),
+                                  tf.zeros((FLAGS_batch_size, 9))], axis=1))
+#  images, labels = train_input_fn()
 
   
   logits = mnist_model(images, tf.estimator.ModeKeys.TRAIN, 'channels_last')
@@ -244,7 +206,7 @@ def train_mnist():
   print("Loss %.5f" %(sess.run(loss)))
   for i in range(10):
     sessrun(train_op)
-    mem_use = mem_util.peak_memory(run_metadata)['/cpu:0']/1e6
+    mem_use = mem_util.peak_memory(run_metadata)[TEST_DEVICE]/1e6
     print("Loss %.5f, memory %.2f MB" %(sess.run(loss), mem_use))
 
   # should print something like this for actual dataset
@@ -262,28 +224,24 @@ def train_mnist():
   assert sess.run(loss) < 100
 
 
-def test_correctness(capsys):
-  # enable printing during successful test run
-  pytest_decorator = capsys.disabled()
-  pytest_decorator.__enter__()
-  # restrict to cpu:0
-  tf_dev = tf.device('/cpu:0')
-  tf_dev.__enter__()
-  
+def test_correctness(capsys=None):
+  # enable printing during successful test run under pytest
+  if capsys:
+    pytest_decorator = capsys.disabled()
+    pytest_decorator.__enter__()
 
-# Loss 0.01803, memory 399.10 MB
-# Loss 0.00002, memory 399.10 MB
-# Loss 0.00000, memory 399.10 MB
-# Running with memory saving
-# Extracting /tmp/mnist_data/train-images-idx3-ubyte.gz
-# Extracting /tmp/mnist_data/train-labels-idx1-ubyte.gz
-# Extracting /tmp/mnist_data/t10k-images-idx3-ubyte.gz
-# Extracting /tmp/mnist_data/t10k-labels-idx1-ubyte.gz
-# Loss 0.07283, memory 380.72 MB
-# Loss 0.00398, memory 351.23 MB
-# Loss 0.00035, memory 351.23 MB
+  # Loss 0.01803, memory 399.10 MB
+  # Loss 0.00002, memory 399.10 MB
+  # Loss 0.00000, memory 399.10 MB
+  # Running with memory saving
+  # Extracting /tmp/mnist_data/train-images-idx3-ubyte.gz
+  # Extracting /tmp/mnist_data/train-labels-idx1-ubyte.gz
+  # Extracting /tmp/mnist_data/t10k-images-idx3-ubyte.gz
+  # Extracting /tmp/mnist_data/t10k-labels-idx1-ubyte.gz
+  # Loss 0.07283, memory 380.72 MB
+  # Loss 0.00398, memory 351.23 MB
+  # Loss 0.00035, memory 351.23 MB
 
-  import memory_saving_gradients
   def grads(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
                                              remember='speed', **kwargs)
@@ -298,7 +256,6 @@ def test_correctness(capsys):
   train_mnist()
 
 def main(unused_argv):
-#  tf.app.run(main=main, argv=[sys.argv[0]] + unparsed)
   test_correctness()
 
 if __name__ == '__main__':
