@@ -41,7 +41,7 @@ def _MyPendingCount(graph, to_ops, from_ops, colocate_gradients_with_ops):
                 pending_count[x.op._id] += 1
     return pending_count, loop_state
 from tensorflow.python.ops import gradients_impl
-gradients_impl._PendingCount = _MyPendingCount
+#gradients_impl._PendingCount = _MyPendingCount
 
 
 # getting rid of "WARNING:tensorflow:VARIABLES collection name is deprecated"
