@@ -186,8 +186,8 @@ def train_mnist():
 
   if USE_REAL_DATA:
     images, labels = train_input_fn()
-    images = tf.stop_gradient(images)
-    labels = tf.stop_gradient(labels)
+#    images = tf.stop_gradient(images)
+#    labels = tf.stop_gradient(labels)
 
   
   logits = mnist_model(images, tf.estimator.ModeKeys.TRAIN, 'channels_last')
