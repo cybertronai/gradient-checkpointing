@@ -21,7 +21,7 @@ sys.path.append(module_path+'/..')
 os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # silence tf init messages
 
-from tensorflow.core.protobuf import rewriter_config_pb2
+#from tensorflow.core.protobuf import rewriter_config_pb2
 import math
 import numpy as np
 import os
@@ -63,7 +63,7 @@ DUMP_GRAPHDEF = False
 def create_session():
   optimizer_options = tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)
   config = tf.ConfigProto(operation_timeout_in_ms=150000, graph_options=tf.GraphOptions(optimizer_options=optimizer_options))
-  config.graph_options.rewrite_options.constant_folding = rewriter_config_pb2.RewriterConfig.OFF
+#  config.graph_options.rewrite_options.constant_folding = rewriter_config_pb2.RewriterConfig.OFF
   config.graph_options.place_pruned_graph = True
   return tf.Session(config=config)
 
