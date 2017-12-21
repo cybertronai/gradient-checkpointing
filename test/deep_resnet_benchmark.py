@@ -48,7 +48,7 @@ NUM_CLASSES = 10
 if USE_TINY:
   BATCH_SIZE=10
 else:
-  BATCH_SIZE=128
+  BATCH_SIZE=1280
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
@@ -123,6 +123,8 @@ def memory_test(resnet_blocks):
   RESNET_SIZE = resnet_blocks*6+2
   
   start_time0 = time.perf_counter()
+  tf.reset_default_graph()
+  
   loss = create_loss()
 
   start_time = time.perf_counter()
@@ -193,6 +195,7 @@ def main():
 
   outf.write(','.join(tostr(memories))+'\n')
   outf.write(','.join(tostr(times))+'\n')
+  outf.close()
 
 if __name__=='__main__':
   main()
