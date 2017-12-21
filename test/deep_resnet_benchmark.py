@@ -12,6 +12,8 @@ parser.add_argument('--max_blocks', type=int, default=10,
                      help="maximum number of blocks to add to resnet")
 parser.add_argument('--outdir', type=str, default='.',
                      help="where to save results")
+parser.add_argument('--disable_batch_norm', type=int, default=0,
+                     help="where to save results")
 args = parser.parse_args()
 
 module_path=os.path.dirname(os.path.abspath(__file__))
@@ -35,7 +37,7 @@ import mem_util
 
 pytestmark = pytest.mark.skipif(not tf.test.is_gpu_available(),
                                 reason="needs gpu")
-resnet_model._DISABLE_BATCH_NORM=True
+resnet_model._DISABLE_BATCH_NORM=bool(args.disable_batch_norm)
 
 # add_2:0, add_7:0, add_12:0, add_17:0, add_22:0, add_27:0, add_32:0, add_37:0, add_42:0, add_47:0, add_52:0, add_57:0, 
 USE_TINY = False
@@ -48,7 +50,7 @@ NUM_CLASSES = 10
 if USE_TINY:
   BATCH_SIZE=10
 else:
-  BATCH_SIZE=1280
+  BATCH_SIZE=4096
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9

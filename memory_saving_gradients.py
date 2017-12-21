@@ -1,12 +1,13 @@
 from toposort import toposort
 import contextlib
-import numpy as np
+import linearize as linearize_lib
+import math
 import networkx as nx
+import numpy as np
+import os
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
-import math
-import os
 
 # save original gradients since tf.gradient could be monkey-patched to point to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
@@ -199,6 +200,59 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                 step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
                 remember = sorted_bottlenecks[step::step]
             
+        # use Tarjan's algorithm to find articulation points, use those
+        # as remember nodes
+        # TODO(y): this alg needs to restrict attention to tensors used in
+        # bwd pass
+        # todo: rename to memory2
+        # todo: remove grad_ys since not tested
+        elif remember == 'tarjan':
+            original_points = linearize_lib.sorted_articulation_points(ys)
+            #print('found articulation points', _format_ops(original_points))
+            assert original_points, "No articulation points found."
+            
+            # restrict to tensors in fwd graph that are inputs to backprop
+            fwd_ts = ge.filter_ts(fwd_ops, True)
+            with util.capture_ops() as bwd_ops:
+                gs = tf_gradients(ys, xs, grad_ys, **kwargs)
+            bwd_inputs = [t for op in bwd_ops for t in op.inputs]
+            fwd_ts_needed = list(set(bwd_inputs).intersection(fwd_ts))
+            
+            xs_ops = _to_ops(xs)
+            # todo: clean-up
+            #fwd_ops = _to_ops(fwd_ts_needed)
+#            points = [p for p in original_points if (p in fwd_ops and
+#                                                     p not in xs_ops)]
+            points = [p for p in original_points if p not in xs_ops]
+            debug_print("xs_ops: %s", xs_ops)
+            debug_print("original_points: %s", original_points)
+            debug_print("points: %s", points)
+
+            # remove ops with multiple outputs, it breaks algorithm
+            # points = [p for p in points if len(p.outputs)<=1]
+            # todo: remove ops which have memory forwarded
+
+            # can either take sqrt of fwd_ts_needed or sqrt of bottlenecks
+            # the latter works better on tensorflow/models/resnet
+            #num_to_save = math.ceil(np.sqrt(len(fwd_ts_needed)))
+            num_to_save = math.ceil(np.sqrt(len(points)))
+            
+            remember_ops = util.pick_n_equispaced(points, num_to_save)
+
+            if len(remember_ops) != len(set(remember_ops)):
+                debug_print("warning, some points repeated when saving")
+                assert False, "TODO(y): add deduping"
+
+            remember = []
+            for op in remember_ops:
+              #assert len(op.outputs) == 1, ("Don't know how to handle this "
+              #"many outputs")
+                for output in op.outputs:
+                  remember.append(output)
+              
+        else:
+            raise Exception('%s is unsupported input for "remember"' % (remember,))
+
     remember = list(set(remember).intersection(ts_all))
 
     # at this point automatic selection happened and remember is list of nodes
