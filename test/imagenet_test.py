@@ -170,7 +170,7 @@ def gradient_memory_mbs():
   ops = g.get_operations()
   
   for op in ge.filter_ops_from_regex(ops, "block_layer"):
-    tf.add_to_collection("remember", op.outputs[0])
+    tf.add_to_collection("checkpoints", op.outputs[0])
 
   sess = create_session()
   sessrun(tf.global_variables_initializer())
@@ -198,7 +198,7 @@ def test_memory_automatic():
   memory_saving_gradients.MIN_CHECKPOINT_NODE_SIZE = 1024
   def gradients_auto(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='memory', **kwargs)
+                                             checkpoints='memory', **kwargs)
 
   tf.__dict__["gradients"] = gradients_auto
   print("Running with automatically selected checkpoints")

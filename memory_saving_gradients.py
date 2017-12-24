@@ -54,18 +54,18 @@ util = sys.modules[__name__]
 
 # specific versions we can use to do process-wide replacement of tf.gradients
 def gradients_speed(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, remember='speed', **kwargs)
+    return gradients(ys, xs, grad_ys, checkpoints='speed', **kwargs)
 
 def gradients_memory(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, remember='memory', **kwargs)
+    return gradients(ys, xs, grad_ys, checkpoints='memory', **kwargs)
         
 def gradients_collection(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, remember='collection', **kwargs)
+    return gradients(ys, xs, grad_ys, checkpoints='collection', **kwargs)
         
 def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, remember='tarjan', **kwargs)
+    return gradients(ys, xs, grad_ys, checkpoints='tarjan', **kwargs)
 
-def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
+def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     '''
     Authors: Tim Salimans & Yaroslav Bulatov
 
@@ -75,21 +75,20 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     ys,xs,grad_ys,kwargs are the arguments to standard tensorflow tf.gradients
     (https://www.tensorflow.org/versions/r0.12/api_docs/python/train.html#gradients)
 
-    'remember' can either be
+    'checkpoints' can either be
         - a list consisting of tensors from the forward pass of the neural net
           that we should re-use when calculating the gradients in the backward pass
           all other tensors that do not appear in this list will be re-computed
         - a string specifying how this list should be determined. currently we support
-            - 'speed':  remember all outputs of convolutions and matmuls. these ops are usually the most expensive,
-                        so remembering them maximizes the running speed
+            - 'speed':  checkpoint all outputs of convolutions and matmuls. these ops are usually the most expensive,
+                        so checkpointing them maximizes the running speed
                         (this is a good option if nonlinearities, concats, batchnorms, etc are taking up a lot of memory)
             - 'memory': try to minimize the memory usage
-                        (currently using a very simple strategy that identifies a number of bottleneck tensors in the graph to remember)
-            - 'collection': look for a tensorflow collection named 'remember', which holds the tensors to remember
+                        (currently using a very simple strategy that identifies a number of bottleneck tensors in the graph to checkpoint)
+            - 'collection': look for a tensorflow collection named 'checkpoints', which holds the tensors to checkpoint
     '''
-        #    TODO: remember collection name to "checkpoints"
 
-    #    print("Calling memsaving gradients with", remember)
+    #    print("Calling memsaving gradients with", checkpoints)
     if not isinstance(ys,list):
         ys = [ys]
     if not isinstance(xs,list):
@@ -138,16 +137,16 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     # remove nodes that have their memory forwarded
     # ts_all = [t for t in ts_all if 'Relu' not in t.name]
 
-    # construct list of tensors to remember from forward pass, if not given as input
-    if type(remember) is not list:
-        if remember == 'collection':
-            remember = tf.get_collection('remember')
+    # construct list of tensors to checkpoint during forward pass, if not given as input
+    if type(checkpoints) is not list:
+        if checkpoints == 'collection':
+            checkpoints = tf.get_collection('checkpoints')
             
-        elif remember == 'speed':
-            # remember all expensive ops to maximize running speed
-            remember = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
+        elif checkpoints == 'speed':
+            # checkpoint all expensive ops to maximize running speed
+            checkpoints = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
             
-        elif remember == 'memory':
+        elif checkpoints == 'memory':
 
             # filter out all tensors that are inputs of the backward graph
             with util.capture_ops() as bwd_ops:
@@ -160,7 +159,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
             debug_print("Using tensors %s", ts_filtered)
             #print(ts_filtered)
 
-            for ts in [ts_filtered, ts_all]:  # try two slightly different ways of getting bottlenecks tensors to remember
+            for ts in [ts_filtered, ts_all]:  # try two slightly different ways of getting bottlenecks tensors to checkpoint
 
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
@@ -186,7 +185,7 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
                     break
 
             if not bottleneck_ts:
-                raise Exception('unable to find bottleneck tensors! please provide remember nodes manually, or use remember="speed".')
+                raise Exception('unable to find bottleneck tensors! please provide checkpoint nodes manually, or use checkpoints="speed".')
 
             # sort the bottlenecks
             bottlenecks_sorted_lists = tf_toposort(bottleneck_ts, within_ops=fwd_ops)
@@ -195,18 +194,18 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
             # save an approximately optimal number ~ sqrt(N)
             N = len(ts_filtered)
             if len(bottleneck_ts) < np.sqrt(N):
-                remember = sorted_bottlenecks
+                checkpoints = sorted_bottlenecks
             else:
                 step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
-                remember = sorted_bottlenecks[step::step]
+                checkpoints = sorted_bottlenecks[step::step]
             
         # use Tarjan's algorithm to find articulation points, use those
-        # as remember nodes
+        # as checkpoint nodes
         # TODO(y): this alg needs to restrict attention to tensors used in
         # bwd pass
         # todo: rename to memory2
         # todo: remove grad_ys since not tested
-        elif remember == 'tarjan':
+        elif checkpoints == 'tarjan':
             original_points = linearize_lib.sorted_articulation_points(ys)
             #print('found articulation points', _format_ops(original_points))
             assert original_points, "No articulation points found."
@@ -237,80 +236,80 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
             #num_to_save = math.ceil(np.sqrt(len(fwd_ts_needed)))
             num_to_save = math.ceil(np.sqrt(len(points)))
             
-            remember_ops = util.pick_n_equispaced(points, num_to_save)
+            checkpoint_ops = util.pick_n_equispaced(points, num_to_save)
 
-            if len(remember_ops) != len(set(remember_ops)):
+            if len(checkpoint_ops) != len(set(checkpoint_ops)):
                 debug_print("warning, some points repeated when saving")
                 assert False, "TODO(y): add deduping"
 
-            remember = []
-            for op in remember_ops:
+            checkpoints = []
+            for op in checkpoint_ops:
               #assert len(op.outputs) == 1, ("Don't know how to handle this "
               #"many outputs")
                 for output in op.outputs:
-                  remember.append(output)
+                  checkpoints.append(output)
               
         else:
-            raise Exception('%s is unsupported input for "remember"' % (remember,))
+            raise Exception('%s is unsupported input for "checkpoints"' % (checkpoints,))
 
-    remember = list(set(remember).intersection(ts_all))
+    checkpoints = list(set(checkpoints).intersection(ts_all))
 
-    # at this point automatic selection happened and remember is list of nodes
-    assert isinstance(remember, list)
+    # at this point automatic selection happened and checkpoints is list of nodes
+    assert isinstance(checkpoints, list)
 
-    #    print("%d remember tensors used" %(len(remember,)))
-    #    for remember_tensor in remember:
-    #        print(remember_tensor.name)
+    #    print("%d checkpoints tensors used" %(len(checkpoints,)))
+    #    for checkpoint_tensor in checkpoints:
+    #        print(checkpoint_tensor.name)
 
-    debug_print("Remember nodes used: %s", remember)
+    debug_print("Checkpoint nodes used: %s", checkpoints)
     # better error handling of special cases
-    # xs are already handled as remember nodes, so no need to include them
-    xs_intersect_remember = set(xs).intersection(set(remember))
-    if xs_intersect_remember:
-        debug_print("Warning, some input nodes are also remember nodes: %s",
-                    xs_intersect_remember)
-    ys_intersect_remember = set(ys).intersection(set(remember))
-    debug_print("ys: %s, remember: %s, intersect: %s", ys, remember,
-                ys_intersect_remember)
+    # xs are already handled as checkpoint nodes, so no need to include them
+    xs_intersect_checkpoints = set(xs).intersection(set(checkpoints))
+    if xs_intersect_checkpoints:
+        debug_print("Warning, some input nodes are also checkpoint nodes: %s",
+                    xs_intersect_checkpoints)
+    ys_intersect_checkpoints = set(ys).intersection(set(checkpoints))
+    debug_print("ys: %s, checkpoints: %s, intersect: %s", ys, checkpoints,
+                ys_intersect_checkpoints)
     # saving an output node (ys) gives no benefit in memory while creating
     # new edge cases, exclude them
-    if ys_intersect_remember:
-        debug_print("Warning, some output nodes are also remember nodes: %s",
-              format_ops(ys_intersect_remember))
+    if ys_intersect_checkpoints:
+        debug_print("Warning, some output nodes are also checkpoints nodes: %s",
+              format_ops(ys_intersect_checkpoints))
 
-    # remove initial and terminal nodes from remember list if present
-    remember = list(set(remember) - set(ys) - set(xs))
+    # remove initial and terminal nodes from checkpoints list if present
+    checkpoints = list(set(checkpoints) - set(ys) - set(xs))
     
-    # check that we have some nodes to remember
-    if not remember:
-        raise Exception('no remember nodes found or given as input! ')
+    # check that we have some nodes to checkpoint
+    if not checkpoints:
+        raise Exception('no checkpoints nodes found or given as input! ')
 
-    # disconnect dependencies between remembered tensors
-    remember_disconnected = {}
-    for x in remember:
+    # disconnect dependencies between checkpointed tensors
+    checkpoints_disconnected = {}
+    for x in checkpoints:
         if x.op and x.op.name is not None:
             grad_node = tf.stop_gradient(x, name=x.op.name+"_sg")
         else:
             grad_node = tf.stop_gradient(x)
-        remember_disconnected[x] = grad_node
+        checkpoints_disconnected[x] = grad_node
 
-    # partial derivatives to the remembered tensors and xs
+    # partial derivatives to the checkpointed tensors and xs
     ops_to_copy = fast_backward_ops(seed_ops=[y.op for y in ys],
-                                    stop_at_ts=remember, within_ops=fwd_ops)
+                                    stop_at_ts=checkpoints, within_ops=fwd_ops)
     debug_print("Found %s ops to copy within fwd_ops %s, seed %s, stop_at %s",
-                    len(ops_to_copy), fwd_ops, [r.op for r in ys], remember)
+                    len(ops_to_copy), fwd_ops, [r.op for r in ys], checkpoints)
     debug_print("ops_to_copy = %s", ops_to_copy)
     debug_print("Processing list %s", ys)
     copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
     copied_ops = info._transformed_ops.values()
     debug_print("Copied %s to %s", ops_to_copy, copied_ops)
-    ge.reroute_ts(remember_disconnected.values(), remember_disconnected.keys(), can_modify=copied_ops)
+    ge.reroute_ts(checkpoints_disconnected.values(), checkpoints_disconnected.keys(), can_modify=copied_ops)
     debug_print("Rewired %s in place of %s restricted to %s",
-                remember_disconnected.values(), remember_disconnected.keys(), copied_ops)
+                checkpoints_disconnected.values(), checkpoints_disconnected.keys(), copied_ops)
 
     # get gradients with respect to current boundary + original x's
     copied_ys = [info._transformed_ops[y.op]._outputs[0] for y in ys]
-    boundary = list(remember_disconnected.values())
+    boundary = list(checkpoints_disconnected.values())
     dv = tf_gradients(ys=copied_ys, xs=boundary+xs, grad_ys=grad_ys, **kwargs)
     debug_print("Got gradients %s", dv)
     debug_print("for %s", copied_ys)
@@ -323,62 +322,62 @@ def gradients(ys, xs, grad_ys=None, remember='collection', **kwargs):
     wait_to_do_ops = list(copied_ops) + [g.op for g in dv if g is not None]
     my_add_control_inputs(wait_to_do_ops, inputs_to_do_before)
 
-    # partial derivatives to the remembered nodes
+    # partial derivatives to the checkpointed nodes
     # dictionary of "node: backprop" for nodes in the boundary
-    d_remember = {r: dr for r,dr in zip(remember_disconnected.keys(),
-                                        dv[:len(remember_disconnected)])}
+    d_checkpoints = {r: dr for r,dr in zip(checkpoints_disconnected.keys(),
+                                        dv[:len(checkpoints_disconnected)])}
     # partial derivatives to xs (usually the params of the neural net)
-    d_xs = dv[len(remember_disconnected):]
+    d_xs = dv[len(checkpoints_disconnected):]
 
-    # incorporate derivatives flowing through the remembered nodes
-    remember_sorted_lists = tf_toposort(remember, within_ops=fwd_ops)
-    for ts in remember_sorted_lists[::-1]:
+    # incorporate derivatives flowing through the checkpointed nodes
+    checkpoints_sorted_lists = tf_toposort(checkpoints, within_ops=fwd_ops)
+    for ts in checkpoints_sorted_lists[::-1]:
         debug_print("Processing list %s", ts)
-        remember_other = [r for r in remember if r not in ts]
-        remember_disconnected_other = [remember_disconnected[r] for r in remember_other]
+        checkpoints_other = [r for r in checkpoints if r not in ts]
+        checkpoints_disconnected_other = [checkpoints_disconnected[r] for r in checkpoints_other]
 
-        # copy part of the graph below current remember node, stopping at other remember nodes
+        # copy part of the graph below current checkpoint node, stopping at other checkpoints nodes
         # YCHANGE: add xs to stopping criterion
-        ops_to_copy = fast_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=remember_other)
+        ops_to_copy = fast_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=checkpoints_other)
         debug_print("Found %s ops to copy within %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ts],
-                    remember_other)
+                    checkpoints_other)
         debug_print("ops_to_copy = %s", ops_to_copy)
         if not ops_to_copy: # we're done!
             break
         copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
         copied_ops = info._transformed_ops.values()
         debug_print("Copied %s to %s", ops_to_copy, copied_ops)
-        ge.reroute_ts(remember_disconnected_other, remember_other, can_modify=copied_ops)
+        ge.reroute_ts(checkpoints_disconnected_other, checkpoints_other, can_modify=copied_ops)
         debug_print("Rewired %s in place of %s restricted to %s",
-                    remember_disconnected_other, remember_other, copied_ops)
+                    checkpoints_disconnected_other, checkpoints_other, copied_ops)
 
-        # gradient flowing through the remembered node
+        # gradient flowing through the checkpointed node
         boundary = [info._transformed_ops[r.op]._outputs[0] for r in ts]
-        substitute_backprops = [d_remember[r] for r in ts]
+        substitute_backprops = [d_checkpoints[r] for r in ts]
         dv = tf_gradients(boundary,
-                          remember_disconnected_other+xs,
+                          checkpoints_disconnected_other+xs,
                           grad_ys=substitute_backprops, **kwargs)
-        #        debug_print("Got gradients %s", dv[:len(remember_other)])
+        #        debug_print("Got gradients %s", dv[:len(checkpoints_other)])
         debug_print("Got gradients %s", dv)
         debug_print("for %s", boundary)
-        debug_print("with respect to %s", remember_disconnected_other+xs)
+        debug_print("with respect to %s", checkpoints_disconnected_other+xs)
         debug_print("with boundary backprop substitutions %s", substitute_backprops)
 
-        inputs_to_do_before = [d_remember[r].op for r in ts]
+        inputs_to_do_before = [d_checkpoints[r].op for r in ts]
         wait_to_do_ops = list(copied_ops) + [g.op for g in dv if g is not None]
         my_add_control_inputs(wait_to_do_ops, inputs_to_do_before)
 
-        # partial derivatives to the remembered nodes
-        for r, dr in zip(remember_other, dv[:len(remember_other)]):
+        # partial derivatives to the checkpointed nodes
+        for r, dr in zip(checkpoints_other, dv[:len(checkpoints_other)]):
             if dr is not None:
-                if d_remember[r] is None:
-                    d_remember[r] = dr
+                if d_checkpoints[r] is None:
+                    d_checkpoints[r] = dr
                 else:
-                    d_remember[r] += dr
+                    d_checkpoints[r] += dr
 
         # partial derivatives to xs (usually the params of the neural net)
-        d_xs_new = dv[len(remember_other):]
+        d_xs_new = dv[len(checkpoints_other):]
         for j in range(len(xs)):
             if d_xs_new[j] is not None:
                 if d_xs[j] is None:

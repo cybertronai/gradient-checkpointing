@@ -244,7 +244,7 @@ def test_correctness(capsys):
 
   def grads(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='speed', **kwargs)
+                                             checkpoints='speed', **kwargs)
   old_grads = tf.gradients
   tf.__dict__["gradients"] = grads
   print("Running with memory saving")

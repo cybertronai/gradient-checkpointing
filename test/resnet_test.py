@@ -3,7 +3,7 @@
 Expected result
 
 Calling memsaving gradients with memory
-12 remember tensors used
+12 checkpoint tensors used
 Memory used: 236.52 MB 
 
 Calling memsaving gradients with  collection
@@ -127,11 +127,11 @@ def gradient_memory_measure_mb():
   if DUMP_GRAPHDEF:
     open('graphdef.txt', 'w').write(str(tf.get_default_graph().as_graph_def()))
 
-  # use block_layer1, block_layer2, block_layer3 as remember nodes
+  # use block_layer1, block_layer2, block_layer3 as checkpoint nodes
   g = tf.get_default_graph()
   ops = g.get_operations()
   for op in ge.filter_ops_from_regex(ops, "block_layer"):
-    tf.add_to_collection("remember", op.outputs[0])
+    tf.add_to_collection("checkpoints", op.outputs[0])
 
   start_time = time.perf_counter()
   grads = tf.gradients(loss, tf.trainable_variables())
@@ -163,7 +163,7 @@ def test_memory_method_saves_memory():
   # automatic checkpoint selection
   def gradients_memory(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='memory', **kwargs)
+                                             checkpoints='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
   peak_mem = gradient_memory_measure_mb()
@@ -188,10 +188,10 @@ def main():
   #   articulation points/cut vertices
   # problem 2: some cut vertices leave xs/ys in same component, need to
   #  filter out vertices that don't separate input->output flows
-  # problem 3: breaks with batch norm remember nodes (multiple outputs)
+  # problem 3: breaks with batch norm checkpoint nodes (multiple outputs)
   # def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
   #   return memory_saving_gradients.gradients(ys, xs, grad_ys,
-  #                                            remember='tarjan', **kwargs)
+  #                                            checkpoints='tarjan', **kwargs)
   # tf.__dict__["gradients"] = gradients_tarjan
   # print("Running with tarjan")
   # assert(gradient_memory_measure_mb() < 720)
@@ -200,7 +200,7 @@ def main():
   # automatic checkpoint selection
   def gradients_memory(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='memory', **kwargs)
+                                             checkpoints='memory', **kwargs)
   tf.__dict__["gradients"] = gradients_memory
   print("Running with memory")
   memuse = gradient_memory_measure_mb()
@@ -209,7 +209,7 @@ def main():
   # replace tf.gradients with custom version
   def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='collection', **kwargs)
+                                             checkpoints='collection', **kwargs)
   tf.__dict__["gradients"] = gradients_collection
   print("Running with manual checkpoints")
   #  assert(gradient_memory_measure_mb() < 730)

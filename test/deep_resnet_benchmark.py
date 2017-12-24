@@ -153,7 +153,7 @@ def main():
   # automatic checkpoint selection
   def gradients_memory(ys, xs, grad_ys=None, **kwargs):
     return memory_saving_gradients.gradients(ys, xs, grad_ys,
-                                             remember='memory', **kwargs)
+                                             checkpoints='memory', **kwargs)
   print("Running with checkpoints")
   tf.__dict__["gradients"] = gradients_memory
   memories, times = [],[]

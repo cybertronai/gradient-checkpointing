@@ -132,7 +132,7 @@ def test_chain_rewrite(linearize=False):
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh(n)
-  grad = memory_saving_gradients.gradients([a4], [a0], remember=[a1,a3])[0]
+  grad = memory_saving_gradients.gradients([a4], [a0], checkpoints=[a1,a3])[0]
   expected_peak = (n+1-2)*10**6  # subtract 2 since we recompute 2
 
   sess = create_session()
@@ -161,12 +161,12 @@ def test_chain_rewrite_save_last():
 
   a0, a1, a2, a3, a4 = make_chain_tanh(n)
   try:
-      grad = memory_saving_gradients.gradients([a4], [a0], remember=[a4])[0]
+      grad = memory_saving_gradients.gradients([a4], [a0], checkpoints=[a4])[0]
   except Exception:
       return
   else:
     if not REMOVE_ASSERTS:
-      assert "Should've been 'no remember nodes found' exception"
+      assert "Should've been 'no checkpoints nodes found' exception"
 
 def test_chain_rewrite_save_one_before_last():
   """Take chain of length 5, save first node."""
@@ -178,7 +178,7 @@ def test_chain_rewrite_save_one_before_last():
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh_constant(n)
-  grad = memory_saving_gradients.gradients([a4], [a0], remember=[a2])[0]
+  grad = memory_saving_gradients.gradients([a4], [a0], checkpoints=[a2])[0]
   expected_peak = (n+1-2)*10**6 
 
   sess = create_session()
@@ -202,7 +202,7 @@ def test_chain_rewrite_save_first():
   n = 5
 
   a0, a1, a2, a3, a4 = make_chain_tanh_constant(n)
-  grad = memory_saving_gradients.gradients([a4], [a0], remember=[a1, a3])[0]
+  grad = memory_saving_gradients.gradients([a4], [a0], checkpoints=[a1, a3])[0]
   expected_peak = (n+1-2)*10**6 
 
   sess = create_session()
@@ -264,7 +264,7 @@ def test_dual_chain_rewrite():
   a, b = nodes1[-1], nodes2[-1]
 
   grad = memory_saving_gradients.gradients([a+b], [a0, b0],
-                                           remember=[nodes1[2], nodes2[2]])
+                                           checkpoints=[nodes1[2], nodes2[2]])
 
   sess = create_session()
   sessrun(tf.global_variables_initializer())
@@ -285,7 +285,7 @@ def test_dual_chain_rewrite():
     assert (peak_memory - expected_peak) < 4.1e6, "Difference too large."
 
 def test_chain_memory(linearize=False):
-  """Like test_chain, but use automatic rewriting with remember="memory" strat."""
+  """Like test_chain, but use automatic rewriting with checkpoints="memory" strat."""
 
   tf.reset_default_graph()
   tf_dev = tf.device('/cpu:0')
@@ -315,7 +315,7 @@ def test_chain_memory(linearize=False):
     assert (peak_memory - expected_peak) < 10000, "Difference too large."
 
 def test_chain_tarjan(linearize=False):
-  """Like test_chain, but use automatic rewriting with remember="tarjan"
+  """Like test_chain, but use automatic rewriting with checkpoints="tarjan"
   strategy."""
 
   tf.reset_default_graph()
@@ -345,7 +345,7 @@ def test_chain_tarjan(linearize=False):
     assert (peak_memory - expected_peak) < 1e5, "Difference too large."
 
 def test_long_chain_memory(linearize=False):
-  """Like test_chain, but use automatic rewriting with remember="memory" 
+  """Like test_chain, but use automatic rewriting with checkpoints="memory" 
   strategy."""
 
   tf.reset_default_graph()
@@ -357,8 +357,8 @@ def test_long_chain_memory(linearize=False):
   nodes = make_chain_tanh_constant(n)
   a0 = nodes[0]
   a = nodes[-1]
-  tf.add_to_collection("remember", nodes[10])
-  tf.add_to_collection("remember", nodes[20])
+  tf.add_to_collection("checkpoints", nodes[10])
+  tf.add_to_collection("checkpoints", nodes[20])
   #grad = memory_saving_gradients.gradients_collection([a], [a0])[0]
   grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
 
@@ -382,7 +382,7 @@ def test_long_chain_memory(linearize=False):
 
 
 def test_long_chain_tarjan(linearize=False):
-  """Like test_chain, but use automatic rewriting with remember="tarjan" 
+  """Like test_chain, but use automatic rewriting with checkpoints="tarjan" 
   strategy."""
 
   tf.reset_default_graph()
@@ -486,8 +486,8 @@ def test_resnet_rewrite(linearize=False):
   a0 = nodes[0]
   a = nodes[-1]
 
-  remember = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
-  grad = memory_saving_gradients.gradients([a], [a0], remember=[nodes[2]])[0]
+  checkpoints = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
+  grad = memory_saving_gradients.gradients([a], [a0], checkpoints=[nodes[2]])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
 
@@ -616,7 +616,7 @@ def test_resnet_rewrite_memory(linearize=False):
   a = nodes[-1]
 
 
-  remember = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
+  checkpoints = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
   grad = memory_saving_gradients.gradients_memory([a], [a0])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
@@ -648,7 +648,7 @@ def test_resnet_rewrite_tarjan(linearize=False):
   a = nodes[-1]
 
 
-  remember = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
+  checkpoints = [nodes[3], nodes[5]] # ['a03_add:0', 'a05_add:0']
   grad = memory_saving_gradients.gradients_tarjan([a], [a0])[0]
   if linearize:
     added = linearize_lib.linearize(grad.op)
