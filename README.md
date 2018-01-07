@@ -39,7 +39,7 @@ Following this, all calls to `tf.gradients` will use the memory saving version i
 ## Tests
 The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./test/run_all_tests.sh` to execute the tests.
 ![](resnet_test.png)
-*Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers*
+*Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers. Batch-size 1280, GTX1080*
 
 ## Limitations
 The provided code does all graph manipulation in python before running your model. This is slow for large graphs, and can be sub-optimal since we do not have access to all information available at run time. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. Although this approach has proven useful in our work, a better solution would be to implement gradient checkpointing in a compiler to be executed at run time. We have been told the Tensorflow team is working on this.
