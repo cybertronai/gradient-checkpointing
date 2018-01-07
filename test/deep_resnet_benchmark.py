@@ -50,7 +50,7 @@ NUM_CLASSES = 10
 if USE_TINY:
   BATCH_SIZE=10
 else:
-  BATCH_SIZE=4096
+  BATCH_SIZE=1280
 _WEIGHT_DECAY = 2e-4
 _INITIAL_LEARNING_RATE = 0.1 * BATCH_SIZE / 128
 _MOMENTUM = 0.9
@@ -146,6 +146,33 @@ def memory_test(resnet_blocks):
 
   return np.min(memories), np.min(times)
 
+class BufferedWriter:
+  """Class that aggregates multiple writes and flushes periodically."""
+  
+  def __init__(self, outfn, save_every_secs=10):
+    self.outfn = outfn
+    self.last_save_ts = time.perf_counter()
+    self.write_buffer = []
+    self.save_every_secs = save_every_secs
+
+  def write(self, line):
+    self.write_buffer.append(line)
+    if time.perf_counter() - self.last_save_ts > self.save_every_secs:
+      self.last_save_ts = time.perf_counter()
+      with open(self.outfn, "a") as myfile:
+        for line in self.write_buffer:
+          myfile.write(line)
+      self.write_buffer = []
+
+  def flush(self):
+    with open(self.outfn, "a") as myfile:
+      for line in self.write_buffer:
+        myfile.write(line)
+    self.write_buffer = []
+
+  def __del__(self):
+    self.flush()
+    
 
 def main():
   old_gradients = tf.gradients
@@ -158,46 +185,58 @@ def main():
   tf.__dict__["gradients"] = gradients_memory
   memories, times = [],[]
 
+  memory_f = BufferedWriter(args.outdir+'/'+args.name+'-opt-memory.csv')
+  time_f = BufferedWriter(args.outdir+'/'+args.name+'-opt-time.csv')
+  time2_f = BufferedWriter(args.outdir+'/'+args.name+'-opt-time2.csv')
+  
   outf = open(args.outdir+'/'+args.name+'.csv', 'w')
-  max_blocks = 5
   for i in range(1, args.max_blocks):
-    try:
+#    try:
+      time0 = time.time()
       memory_cost, time_cost = memory_test(i)
-      print("%-10d %10d"%(i, memory_cost))
-    except Exception as e:
-      print("failed")
-      break
+      time2 = time.time()-time0
+      print("%-10d %10d  %.2f seconds"%(i, memory_cost, time2))
+      memory_f.write(str(memory_cost)+'\n')
+      time_f.write(str(time_cost)+'\n')
+      time2_f.write(str(time2)+'\n')
+      
+#    except Exception as e:
+#      print("failed")
+#      break
     
-    memories.append(memory_cost)
-    times.append(time_cost)
+#    memories.append(memory_cost)
+#    times.append(time_cost)
 
   
-  def tostr(l): return [str(e) for e in l]
-  outf.write(','.join(str(i) for i in range(1, max_blocks))+'\n')
-  outf.write(','.join(tostr(memories))+'\n')
-  outf.write(','.join(tostr(times))+'\n')
+    #  def tostr(l): return [str(e) for e in l]
+    #  outf.write(','.join(str(i) for i in range(1, args.max_blocks))+'\n')
+    #  outf.write(','.join(tostr(memories))+'\n')
+    #  outf.write(','.join(tostr(times))+'\n')
+
   
-  
+  memory_f = BufferedWriter(args.outdir+'/'+args.name+'-reg-memory.csv')
+  time_f = BufferedWriter(args.outdir+'/'+args.name+'-reg-time.csv')
+  time2_f = BufferedWriter(args.outdir+'/'+args.name+'-reg-time2.csv')
+
   # restore old gradients
   print("Running without checkpoints")
   tf.__dict__["gradients"] = old_gradients
   memories, times = [],[]
   for i in range(1, args.max_blocks):
     try:
+      time0 = time.time()
       memory_cost, time_cost = memory_test(i)
-      print("%-10d %10d"%(i, memory_cost))
+      time2 = time.time()-time0
+      print("%-10d %10d  %5.2f seconds"%(i, memory_cost, time.time()-time0))
+      memory_f.write(str(memory_cost)+'\n')
+      time_f.write(str(time_cost)+'\n')
+      time2_f.write(str(time2)+'\n')
     except Exception as e:
       print("failed")
       break
     memories.append(memory_cost)
     times.append(time_cost)
-    
-#  print(memories)
-#  print(times)
 
-  outf.write(','.join(tostr(memories))+'\n')
-  outf.write(','.join(tostr(times))+'\n')
-  outf.close()
 
 if __name__=='__main__':
   main()
