@@ -42,4 +42,4 @@ The test folder contains scripts for testing the correctness of the code and to 
 *Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers. Batch-size 1280, GTX1080*
 
 ## Limitations
-The provided code does all graph manipulation in python before running your model. This is slow for large graphs, and can be sub-optimal since we do not have access to all information available at run time. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. Although this approach has proven useful in our work, a better solution would be to implement gradient checkpointing in a compiler to be executed at run time. We have been told the Tensorflow team is working on this.
+The provided code does all graph manipulation in python before running your model which is slow for large graphs. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. In such case, manual mode checkpoint selection should be used.
