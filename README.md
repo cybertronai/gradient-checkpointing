@@ -1,7 +1,7 @@
 
 # Saving memory using gradient-checkpointing
 
-By checkpointing nodes in a computation graph, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
+By checkpointing nodes in a computation graph, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass. This repository provides an implementation of this functionality in Tensorflow, using the graph editor to automatically rewrite the computation graph of the backward pass.
 ![](img/sqrtn.png)
 
 ## How it works
@@ -88,6 +88,8 @@ The provided code does all graph manipulation in python before running your mode
 
 - Academic papers describing checkpointed backpropagation:
 [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf), [Memory-Efficient Backpropagation Through Time, by Gruslys et al. (2016)](https://arxiv.org/abs/1606.03401v1)
+
+- The Tensorflow graph editor: <https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor>
 
 - Explanation of using graph_editor to implement checkpointing on TensorFlow graphs:
 <https://github.com/tensorflow/tensorflow/issues/4359#issuecomment-269241038>, [https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb](https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb)
