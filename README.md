@@ -1,34 +1,45 @@
 
 # Saving memory using gradient-checkpointing
 
-By checkpointing nodes in a computation graph, and re-computing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
+By checkpointing nodes in a computation graph, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
 ![](img/sqrtn.png)
 
 ## How it works
-For a simple feed-forward neural network with *n* layers, a gradient computation graph looks as follows:
-![](img/backprop.png)
+For a simple feed-forward neural network with *n* layers, the computation graph for obtaining gradients looks as follows:
 
-The activations of the neural network layers correspond to the boxes marked with an *f*. During the forward pass all these boxes are evaluated in order. The gradient of the loss with respect to the activations of these layers is indicated by the boxes marked with *b*. During the backward pass, all these boxes are evaluated in the reversed order. The results obtained for the *f* boxes are needed to compute the *b* boxes, and hence all *f* boxes are kept in memory after the forward pass. This means that the memory required by simple backprop grows linearly with the number of neural net layers *n*. Below we show the order in which these nodes are computed. The purple shaded circles indicate which of the nodes need to be held in memory at any given time.
+![](img/backprop.png | width=1294)
 
-![](img/output.gif)
+The activations of the neural network layers correspond to the nodes marked with an *f*. During the forward pass all these nodes are evaluated in order. The gradient of the loss with respect to the activations and parameters of these layers is indicated by the nodes marked with *b*. During the backward pass, all these nodes are evaluated in the reversed order. The results obtained for the *f* nodes are needed to compute the *b* nodes, and hence all *f* nodes are kept in memory after the forward pass. Only when backpropagation has progressed far enough to have computed all dependencies, or *children*, of an *f* node, can it be erased from memory. This means that the memory required by simple backprop grows linearly with the number of neural net layers *n*. Below we show the order in which these nodes are computed. The purple shaded circles indicate which of the nodes need to be held in memory at any given time.
 
-*1. Vanilla backprop computation graph*
+![](img/output.gif | width=1294)
 
-Simple backpropagation as described above is optimal in terms of computation: it only computes each node once. However, if we are willing to re-compute nodes we can potentially save a lot of memory. We might for instance simply re-compute every node from the forward pass each time we need it. The order of execution and the memory used then looks as follows:
+Graph 1. *Vanilla backprop*
 
-![](img/output_poor.gif)
+Simple backpropagation as described above is optimal in terms of computation: it only computes each node once. However, if we are willing to recompute nodes we can potentially save a lot of memory. We might for instance simply recompute every node from the forward pass each time we need it. The order of execution, and the memory used, then look as follows:
 
-*2. Memory poor backprop computation graph*
+![](img/output_poor.gif | width=1294)
 
-Using this strategy, the memory required to compute gradients in our graph is constant in the number of neural network layers *n*, which is optimal in terms of memory. However, note that the number of node evaluations now scales with *n^2*, whereas it previously scaled as *n*. Using this strategy, each of the *n* nodes is re-computed on the order of *n* times. The computation graph thus becomes much slower to evaluate for deep networks, which makes this method impractical for use in deep learning.
+Graph 2. *Memory poor backprop*
 
-To strike a balance between memory and computation we thus need to come up with a strategy that allows nodes to be re-computed, but not too often. A simple strategy that satisfies this requirement is to re-compute nodes at most once. bla bla
+Using this strategy, the memory required to compute gradients in our graph is constant in the number of neural network layers *n*, which is optimal in terms of memory. However, note that the number of node evaluations now scales with *n^2*, whereas it previously scaled as *n*: Each of the *n* nodes is recomputed on the order of *n* times. The computation graph thus becomes much slower to evaluate for deep networks, which makes this method impractical for use in deep learning.
 
-![](img/output2.gif)
+To strike a balance between memory and computation we thus need to come up with a strategy that allows nodes to be recomputed, but not too often. The strategy we use here is to mark a subset of the neural net activations as *checkpoint nodes*. 
 
-*3. sqrt(n) memory backprop computation graph*
+![](img/checkpoint.png | width=1294)
 
-This package used the graph editor to automatically turn graph *1* into graph *3*
+*Our chosen checkpoint node*
+
+These checkpoint nodes are kept in memory after the forward pass, while the remaining nodes are recomputed at most once. After being recomputed, the non-checkpoint nodes are kept in memory until they are no longer required. For the case of a simple feed-forward neural net, all neuron activation nodes are graph separators or *articulation points* of the graph defined by the forward pass. This means that we only need to recompute the nodes between a *b* node and the last checkpoint preceding it when computing that *b* node during backprop. When backprop has progressed far enough to reach the checkpoint node, all nodes that were recomputed from it can be erased from memory. The resulting order of computation and memory usage look as follows
+
+![](img/output2.gif | width=1294)
+
+Graph 3. *checkpointed backprop*
+
+For the simple feed-forward network in our example, the optimal choice is to define every *sqrt(n)*-th node as a checkpoint. This way, both the number of checkpoint nodes and the number of nodes inbetween checkpoints are on the order of *sqrt(n)*, which means that the required memory now also scales with the square root of the number of layers in our network. Since every node is recomputed at most once, the additional computation required by this strategy is equivalent to a single forward pass through the network.
+
+Our package implements *checkpointed backprop* as shown in Graph 3 above. This is implemented by taking the graph for standard backprop (Graph 1 above) and automatically rewriting it using the Tensorflow graph editor. For graphs that contain articulation points (single node graph dividers) we automatically select checkpoints using the *sqrt(n)* strategy, giving *sqrt(n)* memory usage for feed-forward networks. For more general graphs that only contain multi-node graph separators our implementation of checkpointed backprop still works, but we currently require the user to manually select the checkpoints.
+
+Additional explanation of computation graphs, memory usage, and gradient computation strategies, can be found in the [blog post](https://docs.google.com/document/d/11dKg1xhNCYmo4zwS1DLMk2ekq0ItAnVxGfpyZgTqQhc/edit#heading=h.y10ysutypzu7) accompanying our package.
 
 ## Setup requirements
 ```
@@ -69,4 +80,20 @@ The test folder contains scripts for testing the correctness of the code and to 
 *Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers. Batch-size 1280, GTX1080*
 
 ## Limitations
-The provided code does all graph manipulation in python before running your model which is slow for large graphs. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. In such case, manual mode checkpoint selection should be used.
+The provided code does all graph manipulation in python before running your model which is slow for large graphs. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. In such cases manual mode checkpoint selection should be used.
+
+## References
+
+- Academic papers describing checkpointed backpropagation:
+[Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf), [Memory-Efficient Backpropagation Through Time, by Gruslys et al. (2016)](https://arxiv.org/abs/1606.03401v1)
+
+- Explanation of using graph_editor to implement checkpointing on TensorFlow graphs:
+<https://github.com/tensorflow/tensorflow/issues/4359#issuecomment-269241038>, [https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb](https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb)
+
+- Experiment code/details: <https://medium.com/@yaroslavvb/testing-memory-saving-on-v100-8aa716bbdf00>
+
+- TensorFlow memory tracking package:
+<https://github.com/yaroslavvb/chain_constant_memory/blob/master/mem_util_test.py>
+
+- Implementation of "memory-poor" backprop strategy in TensorFlow for a simple feed-forward net:
+<https://github.com/yaroslavvb/chain_constant_memory/>
