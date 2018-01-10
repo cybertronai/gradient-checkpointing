@@ -2,17 +2,19 @@
 # Saving memory using gradient-checkpointing
 
 By checkpointing nodes in a computation graph, and re-computing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
-![](img/sqrn.png)
+![](img/sqrtn.png)
 
 ## How it works
 For a simple feed-forward neural network with *n* layers, a gradient computation graph looks as follows:
 ![](img/backprop.png)
 
 The activations of the neural network layers correspond to the boxes marked with an *f*. During the forward pass all these boxes are evaluated in order. The gradient of the loss with respect to the activations of these layers is indicated by the boxes marked with *b*. During the backward pass, all these boxes are evaluated in the reversed order. The results obtained for the *f* boxes are needed to compute the *b* boxes, and hence all *f* boxes are kept in memory after the forward pass. This means that the memory required by simple backprop grows linearly with the number of neural net layers *n*. Below we show the order in which these nodes are computed. The purple shaded circles indicate which of the nodes need to be held in memory at any given time.
+
 ![](img/output.gif)
 *1. Vanilla backprop computation graph*
 
 Simple backpropagation as described above is optimal in terms of computation: it only computes each node once. However, if we are willing to re-compute nodes we can potentially save a lot of memory. We might for instance simply re-compute every node from the forward pass each time we need it. The order of execution and the memory used then looks as follows:
+
 ![](img/output_poor.gif)
 *2. Memory poor backprop computation graph*
 
@@ -20,8 +22,8 @@ Using this strategy, the memory required to compute gradients in our graph is co
 
 To strike a balance between memory and computation we thus need to come up with a strategy that allows nodes to be re-computed, but not too often. A simple strategy that satisfies this requirement is to re-compute nodes at most once. bla bla
 
-*3. sqrt(n) memory backprop computation graph*
 ![](img/output2.gif)
+*3. sqrt(n) memory backprop computation graph*
 
 This package used the graph editor to automatically turn graph *1* into graph *3*
 
