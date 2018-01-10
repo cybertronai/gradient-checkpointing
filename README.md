@@ -7,17 +7,17 @@ By checkpointing nodes in a computation graph, and recomputing the parts of the 
 ## How it works
 For a simple feed-forward neural network with *n* layers, the computation graph for obtaining gradients looks as follows:
 
-![](img/backprop.png | width=1294)
+<img src="img/backprop.png" width="1200">
 
 The activations of the neural network layers correspond to the nodes marked with an *f*. During the forward pass all these nodes are evaluated in order. The gradient of the loss with respect to the activations and parameters of these layers is indicated by the nodes marked with *b*. During the backward pass, all these nodes are evaluated in the reversed order. The results obtained for the *f* nodes are needed to compute the *b* nodes, and hence all *f* nodes are kept in memory after the forward pass. Only when backpropagation has progressed far enough to have computed all dependencies, or *children*, of an *f* node, can it be erased from memory. This means that the memory required by simple backprop grows linearly with the number of neural net layers *n*. Below we show the order in which these nodes are computed. The purple shaded circles indicate which of the nodes need to be held in memory at any given time.
 
-![](img/output.gif | width=1294)
+<img src="img/output.gif" width="1200">
 
 Graph 1. *Vanilla backprop*
 
 Simple backpropagation as described above is optimal in terms of computation: it only computes each node once. However, if we are willing to recompute nodes we can potentially save a lot of memory. We might for instance simply recompute every node from the forward pass each time we need it. The order of execution, and the memory used, then look as follows:
 
-![](img/output_poor.gif | width=1294)
+<img src="img/output_poor.gif" width="1200">
 
 Graph 2. *Memory poor backprop*
 
@@ -25,13 +25,13 @@ Using this strategy, the memory required to compute gradients in our graph is co
 
 To strike a balance between memory and computation we thus need to come up with a strategy that allows nodes to be recomputed, but not too often. The strategy we use here is to mark a subset of the neural net activations as *checkpoint nodes*. 
 
-![](img/checkpoint.png | width=1294)
+<img src="img/checkpoint.png" width="1200">
 
 *Our chosen checkpoint node*
 
 These checkpoint nodes are kept in memory after the forward pass, while the remaining nodes are recomputed at most once. After being recomputed, the non-checkpoint nodes are kept in memory until they are no longer required. For the case of a simple feed-forward neural net, all neuron activation nodes are graph separators or *articulation points* of the graph defined by the forward pass. This means that we only need to recompute the nodes between a *b* node and the last checkpoint preceding it when computing that *b* node during backprop. When backprop has progressed far enough to reach the checkpoint node, all nodes that were recomputed from it can be erased from memory. The resulting order of computation and memory usage look as follows
 
-![](img/output2.gif | width=1294)
+<img src="img/output2.gif" width="1200">
 
 Graph 3. *checkpointed backprop*
 
@@ -76,7 +76,9 @@ Following this, all calls to `tf.gradients` will use the memory saving version i
 
 ## Tests
 The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./test/run_all_tests.sh` to execute the tests.
+
 ![](img/resnet_test.png)
+
 *Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers. Batch-size 1280, GTX1080*
 
 ## Limitations
