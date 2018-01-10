@@ -33,7 +33,7 @@ These checkpoint nodes are kept in memory after the forward pass, while the rema
 
 <img src="img/output2.gif" width="1200">
 
-Graph 3. *checkpointed backprop*
+Graph 3. *Checkpointed backprop*
 
 For the simple feed-forward network in our example, the optimal choice is to define every *sqrt(n)*-th node as a checkpoint. This way, both the number of checkpoint nodes and the number of nodes inbetween checkpoints are on the order of *sqrt(n)*, which means that the required memory now also scales with the square root of the number of layers in our network. Since every node is recomputed at most once, the additional computation required by this strategy is equivalent to a single forward pass through the network.
 
