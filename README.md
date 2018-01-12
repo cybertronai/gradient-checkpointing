@@ -1,8 +1,11 @@
-
 # Saving memory using gradient-checkpointing
 
-By checkpointing nodes in a computation graph, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate gradients at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
+Training very deep neural networks requires a lot of memory. Using the tools in this package you can trade off some of this memory usage with computation to make your model fit into memory more easily. For feed-forward models we were able to fit more than 10x larger models onto our GPU, at only a 20% increase in computation time.
+
+The memory intensive part of training deep neural networks is computing the gradient of the loss by backpropagation. By checkpointing nodes in the computation graph defined by your model, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate this gradient at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
+
 ![](img/sqrtn.png)
+*Memory used while training a [ResNet model](https://github.com/tensorflow/models/blob/master/official/resnet/cifar10_main.py) with large batch size, using the regular tf.gradients function and using our memory-optimized gradient implementation*
 
 ## How it works
 For a simple feed-forward neural network with *n* layers, the computation graph for obtaining gradients looks as follows:
@@ -23,19 +26,19 @@ Graph 2. *Memory poor backprop*
 
 Using this strategy, the memory required to compute gradients in our graph is constant in the number of neural network layers *n*, which is optimal in terms of memory. However, note that the number of node evaluations now scales with *n^2*, whereas it previously scaled as *n*: Each of the *n* nodes is recomputed on the order of *n* times. The computation graph thus becomes much slower to evaluate for deep networks, which makes this method impractical for use in deep learning.
 
-To strike a balance between memory and computation we thus need to come up with a strategy that allows nodes to be recomputed, but not too often. The strategy we use here is to mark a subset of the neural net activations as *checkpoint nodes*. 
+To strike a balance between memory and computation we need to come up with a strategy that allows nodes to be recomputed, but not too often. The strategy we use here is to mark a subset of the neural net activations as *checkpoint nodes*. 
 
 <img src="img/checkpoint.png" width="1200">
 
 *Our chosen checkpoint node*
 
-These checkpoint nodes are kept in memory after the forward pass, while the remaining nodes are recomputed at most once. After being recomputed, the non-checkpoint nodes are kept in memory until they are no longer required. For the case of a simple feed-forward neural net, all neuron activation nodes are graph separators or *articulation points* of the graph defined by the forward pass. This means that we only need to recompute the nodes between a *b* node and the last checkpoint preceding it when computing that *b* node during backprop. When backprop has progressed far enough to reach the checkpoint node, all nodes that were recomputed from it can be erased from memory. The resulting order of computation and memory usage look as follows
+These checkpoint nodes are kept in memory after the forward pass, while the remaining nodes are recomputed at most once. After being recomputed, the non-checkpoint nodes are kept in memory until they are no longer required. For the case of a simple feed-forward neural net, all neuron activation nodes are graph separators or *articulation points* of the graph defined by the forward pass. This means that we only need to recompute the nodes between a *b* node and the last checkpoint preceding it when computing that *b* node during backprop. When backprop has progressed far enough to reach the checkpoint node, all nodes that were recomputed from it can be erased from memory. The resulting order of computation and memory usage then look as follows
 
 <img src="img/output2.gif" width="1200">
 
 Graph 3. *Checkpointed backprop*
 
-For the simple feed-forward network in our example, the optimal choice is to define every *sqrt(n)*-th node as a checkpoint. This way, both the number of checkpoint nodes and the number of nodes inbetween checkpoints are on the order of *sqrt(n)*, which means that the required memory now also scales with the square root of the number of layers in our network. Since every node is recomputed at most once, the additional computation required by this strategy is equivalent to a single forward pass through the network.
+For the simple feed-forward network in our example, the optimal choice is to mark every *sqrt(n)*-th node as a checkpoint. This way, both the number of checkpoint nodes and the number of nodes inbetween checkpoints are on the order of *sqrt(n)*, which means that the required memory now also scales with the square root of the number of layers in our network. Since every node is recomputed at most once, the additional computation required by this strategy is equivalent to a single forward pass through the network.
 
 Our package implements *checkpointed backprop* as shown in Graph 3 above. This is implemented by taking the graph for standard backprop (Graph 1 above) and automatically rewriting it using the Tensorflow graph editor. For graphs that contain articulation points (single node graph dividers) we automatically select checkpoints using the *sqrt(n)* strategy, giving *sqrt(n)* memory usage for feed-forward networks. For more general graphs that only contain multi-node graph separators our implementation of checkpointed backprop still works, but we currently require the user to manually select the checkpoints.
 
