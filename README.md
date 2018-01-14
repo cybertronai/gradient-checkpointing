@@ -42,7 +42,7 @@ For the simple feed-forward network in our example, the optimal choice is to mar
 
 Our package implements *checkpointed backprop* as shown in Graph 3 above. This is implemented by taking the graph for standard backprop (Graph 1 above) and automatically rewriting it using the Tensorflow graph editor. For graphs that contain articulation points (single node graph dividers) we automatically select checkpoints using the *sqrt(n)* strategy, giving *sqrt(n)* memory usage for feed-forward networks. For more general graphs that only contain multi-node graph separators our implementation of checkpointed backprop still works, but we currently require the user to manually select the checkpoints.
 
-Additional explanation of computation graphs, memory usage, and gradient computation strategies, can be found in the [blog post](https://docs.google.com/document/d/11dKg1xhNCYmo4zwS1DLMk2ekq0ItAnVxGfpyZgTqQhc/edit#heading=h.y10ysutypzu7) accompanying our package.
+Additional explanation of computation graphs, memory usage, and gradient computation strategies, can be found in the [blog post](https://medium.com/@yaroslavvb/fitting-larger-networks-into-memory-583e3c758ff9) accompanying our package.
 
 ## Setup requirements
 ```
