@@ -9,7 +9,8 @@ import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
 
-# save original gradients since tf.gradient could be monkey-patched to point to our version
+# save original gradients since tf.gradient could be monkey-patched to point
+# to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
 tf_gradients = tf_gradients_lib.gradients
 
@@ -20,32 +21,7 @@ sys.setrecursionlimit(10000)
 
 MIN_CHECKPOINT_NODE_SIZE=1024    # use lower value during testing
 
-# tf.gradients slowness work-around: https://github.com/tensorflow/tensorflow/issues/9901
-def _MyPendingCount(graph, to_ops, from_ops, colocate_gradients_with_ops):
-
-    # get between ops, faster for large graphs than original implementation
-    between_op_list = ge.get_backward_walk_ops(to_ops, stop_at_ts=[op.outputs[0] for op in from_ops], inclusive=False)
-    between_op_list += to_ops + from_ops
-    between_op_list = list(set(between_op_list))
-    between_ops = [False] * (graph._last_id + 1)
-    for op in between_op_list:
-        between_ops[op._id] = True
-
-    # 'loop_state' is None if there are no while loops.
-    loop_state = MaybeCreateControlFlowState(between_op_list, between_ops, colocate_gradients_with_ops)
-    # Initialize pending count for between ops.
-    pending_count = [0] * (graph._last_id + 1)
-    for op in between_op_list:
-        for x in op.inputs:
-            if between_ops[x.op._id]:
-                pending_count[x.op._id] += 1
-    return pending_count, loop_state
-from tensorflow.python.ops import gradients_impl
-#gradients_impl._PendingCount = _MyPendingCount
-
-
 # getting rid of "WARNING:tensorflow:VARIABLES collection name is deprecated"
-# spam inside graph_editor
 setattr(tf.GraphKeys, "VARIABLES", "variables")
 
 # refers back to current module if we decide to split helpers out
@@ -98,6 +74,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                                        inclusive=True)
 
     debug_print("bwd_ops: %s", bwd_ops)
+    
     # forward ops are all ops that are candidates for recomputation
     fwd_ops = ge.get_forward_walk_ops([x.op for x in xs],
                                       inclusive=True,
@@ -105,7 +82,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     debug_print("fwd_ops: %s", bwd_ops)
     
     # exclude ops with no inputs, algorithm
-    # todo(y): reenable
     fwd_ops = [op for op in fwd_ops if op._inputs]
 
     # don't recompute xs
@@ -121,23 +97,14 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
 
-#    print(format_ops(fwd_ops))
-#    print(format_ops(bwd_ops))
+    # tf.Dimension values are not compatible with int, convert manually
     def fixdims(t): return [int(e if e.value is not None else 0) for e in t]
     nr_elem = lambda t: np.prod([s if s>0 else 64 for s in fixdims(t.shape)])
     ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
-#    print('ts_all', format_ops(ts_all))
 
-#    debug_print("Filtering tensors: %s", ts_all)
-
-    #print("ts_all", util.format_ops(ts_all))
-    #print("bwd_ops", util.format_ops(bwd_ops))
-    #print("xs", util.format_ops(xs))
-    # remove nodes that have their memory forwarded
-    # ts_all = [t for t in ts_all if 'Relu' not in t.name]
-
-    # construct list of tensors to checkpoint during forward pass, if not given as input
+    # construct list of tensors to checkpoint during forward pass, if not
+    # given as input
     if type(checkpoints) is not list:
         if checkpoints == 'collection':
             checkpoints = tf.get_collection('checkpoints')
@@ -147,19 +114,18 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
             checkpoints = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
             
         elif checkpoints == 'memory':
-
             # filter out all tensors that are inputs of the backward graph
             with util.capture_ops() as bwd_ops:
                 tf_gradients(ys, xs, grad_ys, **kwargs)
 
             bwd_inputs = [t for op in bwd_ops for t in op.inputs]
-            #print(bwd_inputs)
             # list of tensors in forward graph that is in input to bwd graph
             ts_filtered = list(set(bwd_inputs).intersection(ts_all))
             debug_print("Using tensors %s", ts_filtered)
-            #print(ts_filtered)
 
-            for ts in [ts_filtered, ts_all]:  # try two slightly different ways of getting bottlenecks tensors to checkpoint
+            # try two slightly different ways of getting bottlenecks tensors
+            # to checkpoint
+            for ts in [ts_filtered, ts_all]:
 
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
@@ -167,17 +133,10 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
 
                     b = set(ge.get_backward_walk_ops(t.op, inclusive=True, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
-                    #print('backward', format_ops(b))
-                    #print('forward', format_ops(f))
                     # check that there are not shortcuts
                     b_inp = set([inp for op in b for inp in op.inputs]).intersection(ts_all)
                     f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
-                    #print(t)
-                    #print('b_inp', format_ops(b_inp))
-                    #print('f_inp', format_ops(f_inp))
-                    #print(len(b_inp), len(f_inp), len(ts_all))
                     if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all):
-                        #print('bottleneck', t)
                         bottleneck_ts.append(t)  # we have a bottleneck!
 
                 # success? or try again without filtering?
@@ -199,56 +158,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                 step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
                 checkpoints = sorted_bottlenecks[step::step]
             
-        # use Tarjan's algorithm to find articulation points, use those
-        # as checkpoint nodes
-        # TODO(y): this alg needs to restrict attention to tensors used in
-        # bwd pass
-        # todo: rename to memory2
-        # todo: remove grad_ys since not tested
-        elif checkpoints == 'tarjan':
-            original_points = linearize_lib.sorted_articulation_points(ys)
-            #print('found articulation points', _format_ops(original_points))
-            assert original_points, "No articulation points found."
-            
-            # restrict to tensors in fwd graph that are inputs to backprop
-            fwd_ts = ge.filter_ts(fwd_ops, True)
-            with util.capture_ops() as bwd_ops:
-                gs = tf_gradients(ys, xs, grad_ys, **kwargs)
-            bwd_inputs = [t for op in bwd_ops for t in op.inputs]
-            fwd_ts_needed = list(set(bwd_inputs).intersection(fwd_ts))
-            
-            xs_ops = _to_ops(xs)
-            # todo: clean-up
-            #fwd_ops = _to_ops(fwd_ts_needed)
-#            points = [p for p in original_points if (p in fwd_ops and
-#                                                     p not in xs_ops)]
-            points = [p for p in original_points if p not in xs_ops]
-            debug_print("xs_ops: %s", xs_ops)
-            debug_print("original_points: %s", original_points)
-            debug_print("points: %s", points)
-
-            # remove ops with multiple outputs, it breaks algorithm
-            # points = [p for p in points if len(p.outputs)<=1]
-            # todo: remove ops which have memory forwarded
-
-            # can either take sqrt of fwd_ts_needed or sqrt of bottlenecks
-            # the latter works better on tensorflow/models/resnet
-            #num_to_save = math.ceil(np.sqrt(len(fwd_ts_needed)))
-            num_to_save = math.ceil(np.sqrt(len(points)))
-            
-            checkpoint_ops = util.pick_n_equispaced(points, num_to_save)
-
-            if len(checkpoint_ops) != len(set(checkpoint_ops)):
-                debug_print("warning, some points repeated when saving")
-                assert False, "TODO(y): add deduping"
-
-            checkpoints = []
-            for op in checkpoint_ops:
-              #assert len(op.outputs) == 1, ("Don't know how to handle this "
-              #"many outputs")
-                for output in op.outputs:
-                  checkpoints.append(output)
-              
         else:
             raise Exception('%s is unsupported input for "checkpoints"' % (checkpoints,))
 
@@ -256,10 +165,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
 
     # at this point automatic selection happened and checkpoints is list of nodes
     assert isinstance(checkpoints, list)
-
-    #    print("%d checkpoints tensors used" %(len(checkpoints,)))
-    #    for checkpoint_tensor in checkpoints:
-    #        print(checkpoint_tensor.name)
 
     debug_print("Checkpoint nodes used: %s", checkpoints)
     # better error handling of special cases
@@ -314,7 +219,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     debug_print("Got gradients %s", dv)
     debug_print("for %s", copied_ys)
     debug_print("with respect to %s", boundary+xs)
-    #    import pdb; pdb.set_trace()
 
     inputs_to_do_before = [y.op for y in ys]
     if grad_ys is not None:
@@ -336,8 +240,8 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
         checkpoints_other = [r for r in checkpoints if r not in ts]
         checkpoints_disconnected_other = [checkpoints_disconnected[r] for r in checkpoints_other]
 
-        # copy part of the graph below current checkpoint node, stopping at other checkpoints nodes
-        # YCHANGE: add xs to stopping criterion
+        # copy part of the graph below current checkpoint node, stopping at
+        # other checkpoints nodes
         ops_to_copy = fast_backward_ops(within_ops=fwd_ops, seed_ops=[r.op for r in ts], stop_at_ts=checkpoints_other)
         debug_print("Found %s ops to copy within %s, seed %s, stop_at %s",
                     len(ops_to_copy), fwd_ops, [r.op for r in ts],
@@ -358,7 +262,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
         dv = tf_gradients(boundary,
                           checkpoints_disconnected_other+xs,
                           grad_ys=substitute_backprops, **kwargs)
-        #        debug_print("Got gradients %s", dv[:len(checkpoints_other)])
         debug_print("Got gradients %s", dv)
         debug_print("for %s", boundary)
         debug_print("with respect to %s", checkpoints_disconnected_other+xs)
@@ -463,8 +366,6 @@ def _is_iterable(o):
   return True
 
 
-
-DEBUG_LOGGING=True
 DEBUG_LOGGING=False
 def debug_print(s, *args):
   """Like logger.log, but also replaces all TensorFlow ops/tensors with their
@@ -491,6 +392,7 @@ def format_ops(ops, sort_outputs=True):
   else:
     return ops.name if hasattr(ops, "name") else str(ops)
 
+
 def my_add_control_inputs(wait_to_do_ops, inputs_to_do_before):
     for op in wait_to_do_ops:
         ci = [i for i in inputs_to_do_before if op.control_inputs is None or i not in op.control_inputs]
@@ -501,6 +403,7 @@ def tf_ops_to_nx_graph(ops):
   """Convert Tensorflow graph to NetworkX graph."""
   
   return nx.Graph(tf_ops_to_graph(ops))
+
 
 def pick_n_equispaced(l, n):
   """Picks out n points out of list, at roughly equal intervals."""
@@ -529,6 +432,7 @@ def tf_ops_to_nx_graph(ops):
   """Convert Tensorflow graph to NetworkX graph."""
   
   return nx.Graph(tf_ops_to_graph(ops))
+
 
 def sort(nodes, total_order, dedup=False):
   """Sorts nodes according to order provided.
