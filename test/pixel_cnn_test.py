@@ -11,7 +11,6 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
-
 # folder with memory_saving_gradients
 os.sys.path.append(os.path.dirname(sys.argv[0])+'/..')
 

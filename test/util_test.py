@@ -1,5 +1,4 @@
 import networkx as nx
-import numpy as np
 import sys
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge

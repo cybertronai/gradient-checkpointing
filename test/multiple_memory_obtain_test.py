@@ -12,18 +12,9 @@ os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
 
-import pytest
-import math
 import numpy as np
-import os
-import sys
 import tensorflow as tf
-import tensorflow.contrib.graph_editor as ge
-import time
-import memory_saving_gradients
 import util
-
-
 
 def create_session():
   config = tf.ConfigProto(log_device_placement=False, graph_options=tf.GraphOptions(optimizer_options=tf.OptimizerOptions(opt_level=tf.OptimizerOptions.L0)))

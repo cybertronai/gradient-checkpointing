@@ -13,10 +13,7 @@ module_path=os.path.dirname(os.path.abspath(__file__))
 sys.path.append(module_path+'/..')
 
 import pytest
-import inspect
-import numpy as np
 import tensorflow as tf
-import pdb
 from tensorflow.python.ops import gen_random_ops
 import memory_saving_gradients
 
@@ -24,7 +21,6 @@ import memory_saving_gradients
 from util import make_chain_tanh
 from util import make_chain_tanh_constant
 from util import make_resnet
-from util import debug_print
 import util
 
 import linearize as linearize_lib

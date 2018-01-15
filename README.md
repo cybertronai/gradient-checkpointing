@@ -49,6 +49,7 @@ Additional explanation of computation graphs, memory usage, and gradient computa
 pip install tf-nightly-gpu
 pip install toposort networkx pytest
 ```
+Also, when running the tests, make sure that the CUDA Profiling Tools Interface (CUPTI) can be found, e.g. by running `export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/cuda/extras/CUPTI/lib64"`
 
 ## Usage
 This repository provides a drop-in replacement for [tf.gradients](https://www.tensorflow.org/api_docs/python/tf/gradients) in base Tensorflow. Import this function using
@@ -78,7 +79,7 @@ tf.__dict__["gradients"] = gradients_memory
 Following this, all calls to `tf.gradients` will use the memory saving version instead.
 
 ## Tests
-The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./test/run_all_tests.sh` to execute the tests.
+The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./run_all_tests.sh` from this folder to execute the tests.
 
 ![](img/resnet_test.png)
 

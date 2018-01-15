@@ -1,8 +1,5 @@
 # tests for memory tracking routines
 
-import os
-import sys
-import time
 import pytest
 import tensorflow as tf
 
