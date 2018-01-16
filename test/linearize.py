@@ -287,7 +287,7 @@ class OrderedSet:
   def __len__(self):
     return self.d.__len__()
 
-  def add(x):
+  def add(self, x):
     return update(self, [x])
 
   def discard(self, x):
