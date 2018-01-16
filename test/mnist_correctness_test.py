@@ -20,7 +20,7 @@ import memory_saving_gradients
 import mem_util
 
 TEST_DEVICE='/cpu:0'
-USE_REAL_DATA = True
+USE_REAL_DATA = False
 FLAGS_data_dir='/tmp/mnist_data'
 FLAGS_model_dir='/tmp/mnist_model'
 FLAGS_batch_size=1
