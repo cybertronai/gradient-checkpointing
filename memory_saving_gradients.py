@@ -84,6 +84,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
+    ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
 
     # tf.Dimension values are not compatible with int, convert manually
     def fixdims(t): return [int(e if e.value is not None else 0) for e in t]
