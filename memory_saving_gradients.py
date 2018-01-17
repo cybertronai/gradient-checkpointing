@@ -69,34 +69,17 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                                       within_ops=bwd_ops)
     debug_print("fwd_ops: %s", bwd_ops)
     
-    # exclude ops with no inputs, algorithm
+    # exclude ops with no inputs
     fwd_ops = [op for op in fwd_ops if op._inputs]
 
-    # don't recompute xs
+    # don't recompute xs, remove variables
     xs_ops = _to_ops(xs)
     fwd_ops = [op for op in fwd_ops if not op in xs_ops]
     fwd_ops = [op for op in fwd_ops if not '/assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/Assign' in op.name]
     fwd_ops = [op for op in fwd_ops if not '/read' in op.name]
-
-    # get the tensors, remove variables and very small tensors
-    ts_all = ge.filter_ts(fwd_ops, True)
+    ts_all = ge.filter_ts(fwd_ops, True) # get the tensors
     ts_all = [t for t in ts_all if '/read' not in t.name]
-    ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
-    ts_all = [t for t in ts_all if 'entropy' not in t.name]
-
-    # remove some weird ops that can make it look like there are no articulation points
-    ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
-    ts_all = [t for t in ts_all if 'Switch' not in t.name]
-    ts_all = [t for t in ts_all if 'dropout' not in t.name]
-
-    # tf.Dimension values are not compatible with int, convert manually
-    def fixdims(t):
-        try:
-            return [int(e if e.value is not None else 64) for e in t]
-        except:
-            return [0] # unknown shape
-    ts_all = [t for t in ts_all if np.prod(fixdims(t.shape))>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
 
     # construct list of tensors to checkpoint during forward pass, if not
@@ -110,6 +93,20 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
             checkpoints = ge.filter_ts_from_regex(fwd_ops, 'conv2d|Conv|MatMul')
             
         elif checkpoints == 'memory':
+
+            # remove very small tensors and some weird ops
+            def fixdims(t): # tf.Dimension values are not compatible with int, convert manually
+                try:
+                    return [int(e if e.value is not None else 64) for e in t]
+                except:
+                    return [0]  # unknown shape
+            ts_all = [t for t in ts_all if np.prod(fixdims(t.shape)) > MIN_CHECKPOINT_NODE_SIZE]
+            ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
+            ts_all = [t for t in ts_all if 'entropy' not in t.name]
+            ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
+            ts_all = [t for t in ts_all if 'Switch' not in t.name]
+            ts_all = [t for t in ts_all if 'dropout' not in t.name]
+
             # filter out all tensors that are inputs of the backward graph
             with util.capture_ops() as bwd_ops:
                 tf_gradients(ys, xs, grad_ys, **kwargs)
@@ -134,7 +131,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                     if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all):
                         bottleneck_ts.append(t)  # we have a bottleneck!
                     else:
-                        debug_print("Rejected bottleneck candidate and ops %s", [t] + list(ts_all - b_inp - f_inp))
+                        debug_print("Rejected bottleneck candidate and ops %s", [t] + list(set(ts_all) - set(b_inp) - set(f_inp)))
 
                 # success? or try again without filtering?
                 if len(bottleneck_ts) >= np.sqrt(len(ts_filtered)): # yes, enough bottlenecks found!
