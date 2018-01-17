@@ -84,12 +84,19 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
+
+    # remove some weird ops that can make it look like there are no articulation points
     ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
+    ts_all = [t for t in ts_all if 'Switch' not in t.name]
+    ts_all = [t for t in ts_all if 'dropout' not in t.name]
 
     # tf.Dimension values are not compatible with int, convert manually
-    def fixdims(t): return [int(e if e.value is not None else 0) for e in t]
-    nr_elem = lambda t: np.prod([s if s>0 else 64 for s in fixdims(t.shape)])
-    ts_all = [t for t in ts_all if nr_elem(t)>MIN_CHECKPOINT_NODE_SIZE]
+    def fixdims(t):
+        try:
+            return [int(e if e.value is not None else 64) for e in t]
+        except:
+            return [0] # unknown shape
+    ts_all = [t for t in ts_all if np.prod(fixdims(t.shape))>MIN_CHECKPOINT_NODE_SIZE]
     ts_all = set(ts_all) - set(xs) - set(ys)
 
     # construct list of tensors to checkpoint during forward pass, if not
@@ -119,7 +126,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                 # get all bottlenecks in the graph
                 bottleneck_ts = []
                 for t in ts:
-
                     b = set(ge.get_backward_walk_ops(t.op, inclusive=True, within_ops=fwd_ops))
                     f = set(ge.get_forward_walk_ops(t.op, inclusive=False, within_ops=fwd_ops))
                     # check that there are not shortcuts
@@ -127,6 +133,8 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                     f_inp = set([inp for op in f for inp in op.inputs]).intersection(ts_all)
                     if not set(b_inp).intersection(f_inp) and len(b_inp)+len(f_inp) >= len(ts_all):
                         bottleneck_ts.append(t)  # we have a bottleneck!
+                    else:
+                        debug_print("Rejected bottleneck candidate and ops %s", [t] + list(ts_all - b_inp - f_inp))
 
                 # success? or try again without filtering?
                 if len(bottleneck_ts) >= np.sqrt(len(ts_filtered)): # yes, enough bottlenecks found!
@@ -141,7 +149,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
 
             # save an approximately optimal number ~ sqrt(N)
             N = len(ts_filtered)
-            if len(bottleneck_ts) < np.sqrt(N):
+            if len(bottleneck_ts) <= np.ceil(np.sqrt(N)):
                 checkpoints = sorted_bottlenecks
             else:
                 step = int(np.ceil(len(bottleneck_ts) / np.sqrt(N)))
