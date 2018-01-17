@@ -1,6 +1,6 @@
 # Saving memory using gradient-checkpointing
 
-Training very deep neural networks requires a lot of memory. Using the tools in this package you can trade off some of this memory usage with computation to make your model fit into memory more easily. For feed-forward models we were able to fit more than 10x larger models onto our GPU, at only a 20% increase in computation time.
+Training very deep neural networks requires a lot of memory. Using the tools in this package, developed jointly by Tim Salimans and Yaroslav Bulatov, you can trade off some of this memory usage with computation to make your model fit into memory more easily. For feed-forward models we were able to fit more than 10x larger models onto our GPU, at only a 20% increase in computation time.
 
 The memory intensive part of training deep neural networks is computing the gradient of the loss by backpropagation. By checkpointing nodes in the computation graph defined by your model, and recomputing the parts of the graph in between those nodes during backpropagation, it is possible to calculate this gradient at reduced memory cost. When training deep feed-forward neural networks consisting of *n* layers, we can reduce the memory consumption to *O(sqrt(n))* in this way, at the cost of performing one additional forward pass (see e.g. [Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf)). This repository provides an implementation of this functionality in Tensorflow, using the [Tensorflow graph editor](https://www.tensorflow.org/versions/r1.0/api_guides/python/contrib.graph_editor) to automatically rewrite the computation graph of the backward pass.
 
@@ -42,13 +42,14 @@ For the simple feed-forward network in our example, the optimal choice is to mar
 
 Our package implements *checkpointed backprop* as shown in Graph 3 above. This is implemented by taking the graph for standard backprop (Graph 1 above) and automatically rewriting it using the Tensorflow graph editor. For graphs that contain articulation points (single node graph dividers) we automatically select checkpoints using the *sqrt(n)* strategy, giving *sqrt(n)* memory usage for feed-forward networks. For more general graphs that only contain multi-node graph separators our implementation of checkpointed backprop still works, but we currently require the user to manually select the checkpoints.
 
-Additional explanation of computation graphs, memory usage, and gradient computation strategies, can be found in the [blog post](https://docs.google.com/document/d/11dKg1xhNCYmo4zwS1DLMk2ekq0ItAnVxGfpyZgTqQhc/edit#heading=h.y10ysutypzu7) accompanying our package.
+Additional explanation of computation graphs, memory usage, and gradient computation strategies, can be found in the [blog post](https://medium.com/@yaroslavvb/fitting-larger-networks-into-memory-583e3c758ff9) accompanying our package.
 
 ## Setup requirements
 ```
 pip install tf-nightly-gpu
 pip install toposort networkx pytest
 ```
+Also, when running the tests, make sure that the CUDA Profiling Tools Interface (CUPTI) can be found, e.g. by running `export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/local/cuda/extras/CUPTI/lib64"`
 
 ## Usage
 This repository provides a drop-in replacement for [tf.gradients](https://www.tensorflow.org/api_docs/python/tf/gradients) in base Tensorflow. Import this function using
@@ -78,7 +79,7 @@ tf.__dict__["gradients"] = gradients_memory
 Following this, all calls to `tf.gradients` will use the memory saving version instead.
 
 ## Tests
-The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./test/run_all_tests.sh` to execute the tests.
+The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./run_all_tests.sh` from this folder to execute the tests.
 
 ![](img/resnet_test.png)
 

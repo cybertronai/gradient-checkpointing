@@ -22,11 +22,8 @@ os.environ['TF_CUDNN_USE_AUTOTUNE']='0'  # autotune adds random memory spikes
 os.environ['TF_CPP_MIN_LOG_LEVEL']='2'  # silence tf init messages
 
 from tensorflow.core.protobuf import rewriter_config_pb2
-import math
 import numpy as np
-import os
 import pytest
-import sys
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time

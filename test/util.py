@@ -6,7 +6,6 @@ import math
 import networkx as nx
 import numpy as np
 import os
-import re
 import tempfile
 import time
 

@@ -1,32 +1,23 @@
 from toposort import toposort
 import contextlib
-import linearize as linearize_lib
-import math
-import networkx as nx
 import numpy as np
-import os
 import tensorflow as tf
 import tensorflow.contrib.graph_editor as ge
 import time
+import sys
+sys.setrecursionlimit(10000)
+# refers back to current module if we decide to split helpers out
+util = sys.modules[__name__]
+
+# getting rid of "WARNING:tensorflow:VARIABLES collection name is deprecated"
+setattr(tf.GraphKeys, "VARIABLES", "variables")
 
 # save original gradients since tf.gradient could be monkey-patched to point
 # to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
 tf_gradients = tf_gradients_lib.gradients
 
-from tensorflow.python.ops.control_flow_ops import MaybeCreateControlFlowState
-import sys
-sys.setrecursionlimit(10000)
-
-
 MIN_CHECKPOINT_NODE_SIZE=1024    # use lower value during testing
-
-# getting rid of "WARNING:tensorflow:VARIABLES collection name is deprecated"
-setattr(tf.GraphKeys, "VARIABLES", "variables")
-
-# refers back to current module if we decide to split helpers out
-import sys
-util = sys.modules[__name__]   
 
 # specific versions we can use to do process-wide replacement of tf.gradients
 def gradients_speed(ys, xs, grad_ys=None, **kwargs):
@@ -37,9 +28,6 @@ def gradients_memory(ys, xs, grad_ys=None, **kwargs):
         
 def gradients_collection(ys, xs, grad_ys=None, **kwargs):
     return gradients(ys, xs, grad_ys, checkpoints='collection', **kwargs)
-        
-def gradients_tarjan(ys, xs, grad_ys=None, **kwargs):
-    return gradients(ys, xs, grad_ys, checkpoints='tarjan', **kwargs)
 
 def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     '''
@@ -96,6 +84,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     ts_all = [t for t in ts_all if '/read' not in t.name]
     ts_all = [t for t in ts_all if 'L2Loss' not in t.name]
     ts_all = [t for t in ts_all if 'entropy' not in t.name]
+    ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
 
     # tf.Dimension values are not compatible with int, convert manually
     def fixdims(t): return [int(e if e.value is not None else 0) for e in t]
@@ -290,7 +279,6 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
 
     return d_xs
 
-
 def tf_toposort(ts, within_ops=None):
     all_ops = ge.get_forward_walk_ops([x.op for x in ts], within_ops=within_ops)
 
@@ -309,12 +297,10 @@ def tf_toposort(ts, within_ops=None):
 
     return ts_sorted_lists
 
-
 def fast_backward_ops(within_ops, seed_ops, stop_at_ts):
     bwd_ops = set(ge.get_backward_walk_ops(seed_ops, stop_at_ts=stop_at_ts))
     ops = bwd_ops.intersection(within_ops).difference([t.op for t in stop_at_ts])
     return list(ops)
-
 
 @contextlib.contextmanager
 def capture_ops():
@@ -333,30 +319,15 @@ def capture_ops():
   g = tf.get_default_graph()
   op_list.extend(ge.select_ops(scope_name+"/.*", graph=g))
 
-
 def _to_op(tensor_or_op):
   if hasattr(tensor_or_op, "op"):
     return tensor_or_op.op
   return tensor_or_op
 
-
 def _to_ops(iterable):
   if not _is_iterable(iterable):
     return iterable
   return [_to_op(i) for i in iterable]
-
-def _format_ops(ops, sort_outputs=False):
-  """Helper method for printing ops. Converts Tensor/Operation op to op.name,
-  rest to str(op)."""
-    
-  if hasattr(ops, '__iter__') and not isinstance(ops, str):
-    l = [(op.name if hasattr(op, "name") else str(op)) for op in ops]
-    if sort_outputs:
-      return sorted(l)
-    return l
-  else:
-    return ops.name if hasattr(ops, "name") else str(ops)
-    
 
 def _is_iterable(o):
   try:
@@ -364,7 +335,6 @@ def _is_iterable(o):
   except Exception:
     return False
   return True
-
 
 DEBUG_LOGGING=False
 def debug_print(s, *args):
@@ -379,7 +349,6 @@ def debug_print(s, *args):
     formatted_args = [format_ops(arg) for arg in args]
     print("DEBUG "+s % tuple(formatted_args))
 
-
 def format_ops(ops, sort_outputs=True):
   """Helper method for printing ops. Converts Tensor/Operation op to op.name,
   rest to str(op)."""
@@ -392,63 +361,7 @@ def format_ops(ops, sort_outputs=True):
   else:
     return ops.name if hasattr(ops, "name") else str(ops)
 
-
 def my_add_control_inputs(wait_to_do_ops, inputs_to_do_before):
     for op in wait_to_do_ops:
         ci = [i for i in inputs_to_do_before if op.control_inputs is None or i not in op.control_inputs]
         ge.add_control_inputs(op, ci)
-
-
-def tf_ops_to_nx_graph(ops):
-  """Convert Tensorflow graph to NetworkX graph."""
-  
-  return nx.Graph(tf_ops_to_graph(ops))
-
-
-def pick_n_equispaced(l, n):
-  """Picks out n points out of list, at roughly equal intervals."""
-
-  assert len(l) >= n
-  r = (len(l) - n)/float(n)
-  result = []
-  pos = r
-  while pos < len(l):
-    result.append(l[int(pos)])
-    pos += 1+r
-  return result
-
-
-# TODO: turn lists into sets (required by toposort)
-# TODO: ordered dict instead of dict
-def tf_ops_to_graph(ops):
-  """Creates op->children dictionary from list of TensorFlow ops."""
-
-  def flatten(l): return [item for sublist in l for item in sublist]
-  def children(op): return flatten(tensor.consumers() for tensor in op.outputs)
-  return {op: children(op) for op in ops}
-
-
-def tf_ops_to_nx_graph(ops):
-  """Convert Tensorflow graph to NetworkX graph."""
-  
-  return nx.Graph(tf_ops_to_graph(ops))
-
-
-def sort(nodes, total_order, dedup=False):
-  """Sorts nodes according to order provided.
-  
-  Args:
-    nodes: nodes to sort
-    total_order: list of nodes in correct order
-    dedup: if True, also discards duplicates in nodes
-
-  Returns:
-    Iterable of nodes in sorted order.
-  """
-
-  total_order_idx = {}
-  for i, node in enumerate(total_order):
-    total_order_idx[node] = i
-  if dedup:
-    nodes = set(nodes)
-  return sorted(nodes, key=lambda n: total_order_idx[n])
