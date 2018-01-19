@@ -176,11 +176,28 @@ def main():
 
   outf = open(args.outdir+'/'+args.name+'.csv', 'w')
 
+  # with checkpoints
+  # 18                505
+  # 34                661
+  # 50                984
+  # 101              1408
+  # 152              1334
+  # 200              1411
+  #
+  # without checkpoints
+  # 18                818
+  # 34               1166
+  # 50               2694
+  # 101              4112
+  # 152              5826
+  # 200              8320
+  
   valid_sizes = [18,34,50,101,152,200]
-  for i in range(args.max_blocks):
-    size = valid_sizes[i]
+  
+  print("size      memory_cost")
+  for size in valid_sizes:
     memory_cost, time_cost = memory_test(size=size)
-    print("%-10d %10d"%(i, memory_cost))
+    print("%-10d %10d"%(size, memory_cost))
     
     memories.append(memory_cost)
     times.append(time_cost)
@@ -190,20 +207,24 @@ def main():
   outf.write(','.join(tostr(memories))+'\n')
   outf.write(','.join(tostr(times))+'\n')
   
-  
+
+  # 34               1167
+  # 50               2685
+  # 101              4111
+  # 152              5826
+
   # restore old gradients
   print("Running without checkpoints")
   tf.__dict__["gradients"] = old_gradients
   memories, times = [],[]
-  for i in range(1, args.max_blocks):
-    size = valid_sizes[i]
-    memory_cost, time_cost = memory_test(i)
-    print("%-10d %10d"%(i, memory_cost))
+  for size in valid_sizes:
+    memory_cost, time_cost = memory_test(size=size)
+    print("%-10d %10d"%(size, memory_cost))
     memories.append(memory_cost)
     times.append(time_cost)
     
-#  print(memories)
-#  print(times)
+  print(memories)
+  print(times)
 
   outf.write(','.join(tostr(memories))+'\n')
   outf.write(','.join(tostr(times))+'\n')
