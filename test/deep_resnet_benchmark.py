@@ -8,6 +8,8 @@ import time
 parser = argparse.ArgumentParser(description='deep resnet benchmark')
 parser.add_argument('--name', type=str, default='deep',
                      help="name of benchmark run")
+parser.add_argument('--min_blocks', type=int, default=1,
+                     help="maximum number of blocks to add to resnet")
 parser.add_argument('--max_blocks', type=int, default=10,
                      help="maximum number of blocks to add to resnet")
 parser.add_argument('--outdir', type=str, default='.',
@@ -222,7 +224,7 @@ def main():
   print("Running without checkpoints")
   tf.__dict__["gradients"] = old_gradients
   memories, times = [],[]
-  for i in range(1, args.max_blocks):
+  for i in range(args.min_blocks, args.max_blocks):
     try:
       time0 = time.time()
       memory_cost, time_cost = memory_test(i)
