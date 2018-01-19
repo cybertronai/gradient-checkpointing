@@ -186,7 +186,7 @@ def main():
     times.append(time_cost)
 
   def tostr(l): return [str(e) for e in l]
-  outf.write(','.join(str(i) for i in range(1, max_blocks))+'\n')
+  outf.write(','.join(str(i) for i in range(1, args.max_blocks))+'\n')
   outf.write(','.join(tostr(memories))+'\n')
   outf.write(','.join(tostr(times))+'\n')
   
