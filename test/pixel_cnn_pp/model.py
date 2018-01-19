@@ -7,7 +7,7 @@ import tensorflow as tf
 from tensorflow.contrib.framework.python.ops import arg_scope
 import pixel_cnn_pp.nn as nn
 
-def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_filters=160, nr_logistic_mix=10, resnet_nonlinearity='concat_elu'):
+def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_filters=160, nr_logistic_mix=10, resnet_nonlinearity='concat_elu', energy_distance=False):
     """
     We receive a Tensor x of shape (N,H,W,D1) (e.g. (12,32,32,3)) and produce
     a Tensor x_out of shape (N,H,W,D2) (e.g. (12,32,32,100)), where each fiber
@@ -56,7 +56,7 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
                 u_list.append(nn.gated_resnet(u_list[-1], conv=nn.down_shifted_conv2d))
                 ul_list.append(nn.gated_resnet(ul_list[-1], u_list[-1], conv=nn.down_right_shifted_conv2d))
 
-            # checkpoint nodes
+            # remember nodes
             for t in u_list+ul_list:
                 tf.add_to_collection('checkpoints', t)
 
@@ -71,8 +71,6 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
 
             u = nn.down_shifted_deconv2d(u, num_filters=nr_filters, stride=[2, 2])
             ul = nn.down_right_shifted_deconv2d(ul, num_filters=nr_filters, stride=[2, 2])
-            tf.add_to_collection('checkpoints', u)
-            tf.add_to_collection('checkpoints', ul)
 
             for rep in range(nr_resnet+1):
                 u = nn.gated_resnet(u, u_list.pop(), conv=nn.down_shifted_conv2d)
@@ -82,8 +80,6 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
 
             u = nn.down_shifted_deconv2d(u, num_filters=nr_filters, stride=[2, 2])
             ul = nn.down_right_shifted_deconv2d(ul, num_filters=nr_filters, stride=[2, 2])
-            tf.add_to_collection('checkpoints', u)
-            tf.add_to_collection('checkpoints', ul)
 
             for rep in range(nr_resnet+1):
                 u = nn.gated_resnet(u, u_list.pop(), conv=nn.down_shifted_conv2d)
@@ -91,10 +87,31 @@ def model_spec(x, h=None, init=False, ema=None, dropout_p=0.5, nr_resnet=5, nr_f
                 tf.add_to_collection('checkpoints', u)
                 tf.add_to_collection('checkpoints', ul)
 
-            x_out = nn.nin(tf.nn.elu(ul),10*nr_logistic_mix)
+            if energy_distance:
+                f = nn.nin(tf.nn.elu(ul), 64)
 
-            assert len(u_list) == 0
-            assert len(ul_list) == 0
+                # generate 10 samples
+                fs = []
+                for rep in range(10):
+                    fs.append(f)
+                f = tf.concat(fs, 0)
+                fs = nn.int_shape(f)
+                f += nn.nin(tf.random_uniform(shape=fs[:-1] + [4], minval=-1., maxval=1.), 64)
+                f = nn.nin(nn.concat_elu(f), 64)
+                x_sample = tf.tanh(nn.nin(nn.concat_elu(f), 3, init_scale=0.1))
 
-            return x_out
+                x_sample = tf.split(x_sample, 10, 0)
+
+                assert len(u_list) == 0
+                assert len(ul_list) == 0
+
+                return x_sample
+
+            else:
+                x_out = nn.nin(tf.nn.elu(ul),10*nr_logistic_mix)
+
+                assert len(u_list) == 0
+                assert len(ul_list) == 0
+
+                return x_out
 
