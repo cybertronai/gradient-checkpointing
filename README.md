@@ -82,6 +82,8 @@ from tensorflow.python.keras._impl.keras import backend as K
 K.__dict__["gradients"] = memory_saving_gradients.gradients_memory
 ```
 
+Replace `gradients_memory` with `gradients_speed` or `gradients_collection` to use the other methods of checkpoint selection.
+
 ## Tests
 The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./run_all_tests.sh` from this folder to execute the tests.
 
@@ -90,7 +92,7 @@ The test folder contains scripts for testing the correctness of the code and to 
 *Testing memory usage and running time for ResNet on CIFAR10 for different numbers of layers. Batch-size 1280, GTX1080*
 
 ## Limitations
-The provided code does all graph manipulation in python before running your model which is slow for large graphs. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. In such cases manual mode checkpoint selection should be used.
+The provided code does all graph manipulation in python before running your model which is slow for large graphs. The current algorithm for automatically selecting checkpoints is purely heuristic and is expected to fail on some models outside of the class we have tested. In such cases manual mode checkpoint selection should be used: Add your chosen checkpoint nodes to a Tensorflow collection names "checkpoints" and use `checkpoints=collection` when calling our gradients function.
 
 ## References
 
