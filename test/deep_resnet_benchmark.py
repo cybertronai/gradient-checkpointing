@@ -192,7 +192,7 @@ def main():
   time2_f = BufferedWriter(args.outdir+'/'+args.name+'-opt-time2.csv')
   
   outf = open(args.outdir+'/'+args.name+'.csv', 'w')
-  for i in range(1, args.max_blocks):
+  for i in range(args.min_blocks, args.max_blocks):
 #    try:
       time0 = time.time()
       memory_cost, time_cost = memory_test(i)
