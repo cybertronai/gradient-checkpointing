@@ -5,7 +5,7 @@ python:
 - '3.5'
 install:
 - pip install numpy
-- pip install tf-nightly
+- pip install tensorflow
 - pip install toposort
 - pip install networkx
 - pip install flake8
