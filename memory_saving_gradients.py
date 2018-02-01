@@ -67,7 +67,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     fwd_ops = ge.get_forward_walk_ops([x.op for x in xs],
                                       inclusive=True,
                                       within_ops=bwd_ops)
-    debug_print("fwd_ops: %s", bwd_ops)
+    debug_print("fwd_ops: %s", fwd_ops)
     
     # exclude ops with no inputs
     fwd_ops = [op for op in fwd_ops if op._inputs]
