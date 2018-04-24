@@ -70,7 +70,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     debug_print("fwd_ops: %s", fwd_ops)
     
     # exclude ops with no inputs
-    fwd_ops = [op for op in fwd_ops if op._inputs]
+    fwd_ops = [op for op in fwd_ops if op.inputs]
 
     # don't recompute xs, remove variables
     xs_ops = _to_ops(xs)
