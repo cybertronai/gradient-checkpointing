@@ -200,6 +200,8 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
     debug_print("ops_to_copy = %s", ops_to_copy)
     debug_print("Processing list %s", ys)
     copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
+    for origin_op, op in info._transformed_ops.items():
+        op._set_device(origin_op.node_def.device)
     copied_ops = info._transformed_ops.values()
     debug_print("Copied %s to %s", ops_to_copy, copied_ops)
     ge.reroute_ts(checkpoints_disconnected.values(), checkpoints_disconnected.keys(), can_modify=copied_ops)
@@ -244,6 +246,8 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
         if not ops_to_copy: # we're done!
             break
         copied_sgv, info = ge.copy_with_input_replacements(ge.sgv(ops_to_copy), {})
+        for origin_op, op in info._transformed_ops.items():
+            op._set_device(origin_op.node_def.device)
         copied_ops = info._transformed_ops.values()
         debug_print("Copied %s to %s", ops_to_copy, copied_ops)
         ge.reroute_ts(checkpoints_disconnected_other, checkpoints_other, can_modify=copied_ops)
