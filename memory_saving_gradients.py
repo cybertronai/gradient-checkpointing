@@ -106,6 +106,8 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
             ts_all = [t for t in ts_all if 'FusedBatchNorm' not in t.name]
             ts_all = [t for t in ts_all if 'Switch' not in t.name]
             ts_all = [t for t in ts_all if 'dropout' not in t.name]
+            # DV: FP16_FIX - need to add 'Cast' layer here to make it work for FP16
+            ts_all = [t for t in ts_all if 'Cast' not in t.name]
 
             # filter out all tensors that are inputs of the backward graph
             with util.capture_ops() as bwd_ops:
