@@ -96,8 +96,11 @@ The provided code does all graph manipulation in python before running your mode
 
 ## References
 
-- Academic papers describing checkpointed backpropagation:
-[Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf), [Memory-Efficient Backpropagation Through Time, by Gruslys et al. (2016)](https://arxiv.org/abs/1606.03401v1)
+- Academic works describing checkpointed backpropagation:
+[Training Deep Nets with Sublinear Memory Cost, by Chen et al. (2016)](https://arxiv.org/pdf/1604.06174.pdf), [Memory-Efficient Backpropagation Through Time, by Gruslys et al. (2016)](https://arxiv.org/abs/1606.03401v1), [Exact Alpha-Beta Computation in
+Logarithmic Space with Application to MAP Word Graph Construction, by Zweig et al. (2000)](https://www.microsoft.com/en-us/research/publication/exact-alpha-beta-computation-in-logarithmic-space-with-application-to-map-word-graph-construction/), [Debugging Backwards in Time, by Bil Lewis (2003)](https://arxiv.org/abs/cs/0310016), [Evaluating Derivatives: Principles and Techniques of Algorithmic Differentiation, by Griewank and Walther (2008)](https://epubs.siam.org/doi/book/10.1137/1.9780898717761)
+
+
 
 - Explanation of using graph_editor to implement checkpointing on TensorFlow graphs:
 <https://github.com/tensorflow/tensorflow/issues/4359#issuecomment-269241038>, [https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb](https://github.com/yaroslavvb/stuff/blob/master/simple_rewiring.ipynb)
