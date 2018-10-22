@@ -276,15 +276,24 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
                     d_checkpoints[r] = dr
                 else:
                     d_checkpoints[r] += dr
+        def _unsparsify(x):
+            if not isinstance(x, tf.IndexedSlices):
+                return x
+            assert x.dense_shape is not None, "memory_saving_gradients encountered sparse gradients of unknown shape"
+            indices = x.indices
+            while indices.shape.ndims < x.values.shape.ndims:
+                indices = tf.expand_dims(indices, -1)
+            return tf.scatter_nd(indices, x.values, x.dense_shape)
 
         # partial derivatives to xs (usually the params of the neural net)
         d_xs_new = dv[len(checkpoints_other):]
         for j in range(len(xs)):
             if d_xs_new[j] is not None:
                 if d_xs[j] is None:
-                    d_xs[j] = d_xs_new[j]
+                    d_xs[j] = _unsparsify(d_xs_new[j])
                 else:
-                    d_xs[j] += d_xs_new[j]
+                    d_xs[j] += _unsparsify(d_xs_new[j])
+
 
     return d_xs
 
