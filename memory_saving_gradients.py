@@ -16,7 +16,6 @@ setattr(tf.GraphKeys, "VARIABLES", "variables")
 # to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
 
-print("ENTERED")
 # ISSUE: https://github.com/cybertronai/gradient-checkpointing/issues/38
 def tf_gradients(ys, *args, **kwargs):
     """Decorate tf.gradients calls with explicit device placement to avoid memory
