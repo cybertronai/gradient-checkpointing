@@ -15,7 +15,17 @@ setattr(tf.GraphKeys, "VARIABLES", "variables")
 # save original gradients since tf.gradient could be monkey-patched to point
 # to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
-tf_gradients = tf_gradients_lib.gradients
+
+# ISSUE: https://github.com/cybertronai/gradient-checkpointing/issues/38
+def tf_gradients(ys, *args, **kwargs):
+    """Decorate tf.gradients calls with explicit device placement to avoid memory
+    leaks when splitting model across multiple GPUs"""
+    source = ys[0] if isinstance(ys, (list, tuple)) else ys
+    device = source.op.node_def.device if isinstance(source, tf.Tensor) else None
+    print("SETTING DEVICE:", device)
+    with tf.device(device):
+        return tf_gradients_lib.gradients(ys, *args, **kwargs)
+
 
 MIN_CHECKPOINT_NODE_SIZE=1024    # use lower value during testing
 
@@ -192,6 +202,7 @@ def gradients(ys, xs, grad_ys=None, checkpoints='collection', **kwargs):
             grad_node = tf.stop_gradient(x, name=x.op.name+"_sg")
         else:
             grad_node = tf.stop_gradient(x)
+        grad_node.op._set_device(x.op.node_def.device)
         checkpoints_disconnected[x] = grad_node
 
     # partial derivatives to the checkpointed tensors and xs
