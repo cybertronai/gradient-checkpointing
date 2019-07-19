@@ -15,6 +15,7 @@ setattr(tf.GraphKeys, "VARIABLES", "variables")
 # save original gradients since tf.gradient could be monkey-patched to point
 # to our version
 from tensorflow.python.ops import gradients as tf_gradients_lib
+tf_gradient_function = tf_gradients_lib.gradients
 
 # ISSUE: https://github.com/cybertronai/gradient-checkpointing/issues/38
 def tf_gradients(ys, *args, **kwargs):
@@ -22,9 +23,8 @@ def tf_gradients(ys, *args, **kwargs):
     leaks when splitting model across multiple GPUs"""
     source = ys[0] if isinstance(ys, (list, tuple)) else ys
     device = source.op.node_def.device if isinstance(source, tf.Tensor) else None
-    print("SETTING DEVICE:", device)
     with tf.device(device):
-        return tf_gradients_lib.gradients(ys, *args, **kwargs)
+        return tf_gradient_function(ys, *args, **kwargs)
 
 
 MIN_CHECKPOINT_NODE_SIZE=1024    # use lower value during testing

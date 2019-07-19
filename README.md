@@ -74,17 +74,18 @@ A useful alternative to using the new `gradients` function directly is to just o
 import tensorflow as tf
 import memory_saving_gradients
 # monkey patch tf.gradients to point to our custom version, with automatic checkpoint selection
-tf.__dict__["gradients"] = memory_saving_gradients.gradients_memory
+tf.__dict__["gradients"] = memory_saving_gradients.gradients_speed
 ```
 Following this, all calls to `tf.gradients` will use the memory saving version instead.
 
 The same can be done when using Keras:
 ```
-from tensorflow.python.keras._impl.keras import backend as K
-K.__dict__["gradients"] = memory_saving_gradients.gradients_memory
+import memory_saving_gradients as gc
+from tensorflow.python.ops import gradients as tf_gradients
+tf_gradients.gradients = gc.gradients_speed
 ```
 
-Replace `gradients_memory` with `gradients_speed` or `gradients_collection` to use the other methods of checkpoint selection.
+Replace `gradients_speed` with `gradients_memory` or `gradients_collection` to use the other methods of checkpoint selection.
 
 ## Tests
 The test folder contains scripts for testing the correctness of the code and to profile the memory usage for various models. After modifying the code you can run `./run_all_tests.sh` from this folder to execute the tests.
